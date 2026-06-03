@@ -24,6 +24,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	api.Post("/login", authController.Login)
 	api.Post("/register", authController.Register)
 	api.Post("/refresh-token", authController.RefreshToken)
+	api.Get("/location", lokasiController.GetAllLokasi)
 
 	protected := api.Group("/protected")
 	protected.Use(func(c *fiber.Ctx) error {
@@ -69,6 +70,20 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	superAdminRoutes.Post("/pegawai", pegawaiController.CreatePegawai)
 	superAdminRoutes.Put("/pegawai/:id", pegawaiController.UpdatePegawai)
 	superAdminRoutes.Delete("/pegawai/:id", pegawaiController.DeletePegawai)
+
+	// Lokasi routes
+	superAdminRoutes.Get("/lokasi", lokasiController.GetAllLokasi)
+	superAdminRoutes.Get("/lokasi/:id", lokasiController.GetLokasiByID)
+	superAdminRoutes.Post("/lokasi", lokasiController.CreateLokasi)
+	superAdminRoutes.Put("/lokasi/:id", lokasiController.UpdateLokasi)
+	superAdminRoutes.Delete("/lokasi/:id", lokasiController.DeleteLokasi)
+
+	// Absensi routes
+	superAdminRoutes.Get("/absensi", absensiController.GetAllAbsensi)
+	superAdminRoutes.Get("/absensi/:id", absensiController.GetAbsensiByID)
+	superAdminRoutes.Post("/absensi", absensiController.CreateAbsensi)
+	superAdminRoutes.Put("/absensi/:id", absensiController.UpdateAbsensi)
+	superAdminRoutes.Delete("/absensi/:id", absensiController.DeleteAbsensi)
 
 	adminKantorCabangRoutes := protected.Group("/adm_kantor_cabang")
 	adminKantorCabangRoutes.Use(middleware.AuthMiddleware(string(models.RoleAdminKantorCabang)))
