@@ -8,9 +8,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import LocationPicker from '../../components/LocationPicker';
+import FaceCapture from '../../components/FaceCapture';
 
 const { width, height } = Dimensions.get('window');
 const isSmallDevice = width < 375;
@@ -18,9 +21,15 @@ const isTablet = width > 768;
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
-  const [userName, setUserName] = useState('User');
+  const [userName, setUserName] = useState('Ahmad Fauzi');
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
+  
+  // State untuk LocationPicker dan FaceCapture
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showFaceCapture, setShowFaceCapture] = useState(false);
+  const [currentAction, setCurrentAction] = useState<'in' | 'out' | null>(null);
+  const [tempLocation, setTempLocation] = useState<any>(null);
 
   // Data statistik
   const [stats, setStats] = useState({
@@ -36,6 +45,10 @@ export default function DashboardScreen() {
     isCheckedOut: false,
     checkInTime: '',
     checkOutTime: '',
+    checkInLocation: null as any,
+    checkOutLocation: null as any,
+    checkInPhoto: null as string | null,
+    checkOutPhoto: null as string | null,
   });
 
   useEffect(() => {
@@ -63,48 +76,98 @@ export default function DashboardScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulasi refresh data
     await new Promise(resolve => setTimeout(resolve, 1500));
     setRefreshing(false);
   };
 
   const handleCheckIn = () => {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    
-    setTodayStatus({
-      isCheckedIn: true,
-      isCheckedOut: todayStatus.isCheckedOut,
-      checkInTime: timeString,
-      checkOutTime: todayStatus.checkOutTime,
-    });
-    
-    // Update statistik
-    setStats(prev => ({
-      ...prev,
-      totalHadir: prev.totalHadir + 1,
-    }));
+    if (todayStatus.isCheckedIn) {
+      Alert.alert('Info', 'Anda sudah melakukan check in hari ini');
+      return;
+    }
+    setCurrentAction('in');
+    setShowLocationPicker(true);
   };
 
   const handleCheckOut = () => {
+    if (todayStatus.isCheckedOut) {
+      Alert.alert('Info', 'Anda sudah melakukan check out hari ini');
+      return;
+    }
+    if (!todayStatus.isCheckedIn) {
+      Alert.alert('Info', 'Anda harus check in terlebih dahulu');
+      return;
+    }
+    setCurrentAction('out');
+    setShowLocationPicker(true);
+  };
+
+  const handleLocationConfirm = async (location: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  }) => {
+    // Simpan lokasi sementara
+    setTempLocation(location);
+    // Tutup location picker
+    setShowLocationPicker(false);
+    // Langsung buka face capture untuk mengambil selfie
+    setShowFaceCapture(true);
+  };
+
+  const handleFaceCaptureComplete = async (photoUri: string) => {
     const now = new Date();
     const timeString = now.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
     });
+
+    if (currentAction === 'in') {
+      setTodayStatus({
+        ...todayStatus,
+        isCheckedIn: true,
+        checkInTime: timeString,
+        checkInLocation: tempLocation,
+        checkInPhoto: photoUri,
+      });
+      
+      // Update statistik
+      setStats(prev => ({
+        ...prev,
+        totalHadir: prev.totalHadir + 1,
+      }));
+      
+      Alert.alert(
+        'Sukses',
+        `✅ Check In berhasil!\n\n📅 Waktu: ${timeString}\n📍 Lokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\n🎯 Akurasi: ${Math.round(tempLocation.accuracy)} meter\n📸 Foto selfie telah tersimpan`
+      );
+    } else if (currentAction === 'out') {
+      setTodayStatus({
+        ...todayStatus,
+        isCheckedOut: true,
+        checkOutTime: timeString,
+        checkOutLocation: tempLocation,
+        checkOutPhoto: photoUri,
+      });
+      
+      Alert.alert(
+        'Sukses',
+        `✅ Check Out berhasil!\n\n📅 Waktu: ${timeString}\n📍 Lokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\n🎯 Akurasi: ${Math.round(tempLocation.accuracy)} meter\n📸 Foto selfie telah tersimpan`
+      );
+    }
     
-    setTodayStatus({
-      isCheckedIn: todayStatus.isCheckedIn,
-      isCheckedOut: true,
-      checkInTime: todayStatus.checkInTime,
-      checkOutTime: timeString,
-    });
+    setTempLocation(null);
+    setCurrentAction(null);
   };
 
-  const StatCard = ({ icon, title, value, color, bgColor }) => (
+  const handleCloseFaceCapture = () => {
+    setShowFaceCapture(false);
+    setTempLocation(null);
+    setCurrentAction(null);
+  };
+
+  const StatCard = ({ icon, title, value, color, bgColor }: any) => (
     <View style={[styles.statCard, { backgroundColor: bgColor }]}>
       <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon} size={24} color={color} />
@@ -115,146 +178,167 @@ export default function DashboardScreen() {
   );
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>Selamat Datang,</Text>
-          <Text style={styles.userName}>{userName}</Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.welcomeText}>Selamat Datang,</Text>
+            <Text style={styles.userName}>{userName}</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            onPress={() => Alert.alert('Info', 'Fitur notifikasi akan segera hadir')}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#fff" />
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>3</Text>
+            </View>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          style={styles.notificationButton}
-          onPress={() => router.push('/notifikasi')}
-        >
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.notificationBadgeText}>3</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
 
-      {/* Date & Time */}
-      <View style={styles.dateTimeContainer}>
-        <Text style={styles.currentTime}>{currentTime}</Text>
-        <Text style={styles.currentDate}>{currentDate}</Text>
-      </View>
+        {/* Date & Time */}
+        <View style={styles.dateTimeContainer}>
+          <Text style={styles.currentTime}>{currentTime}</Text>
+          <Text style={styles.currentDate}>{currentDate}</Text>
+        </View>
 
-      {/* Status Absensi Hari Ini */}
-      <View style={styles.todayStatusCard}>
-        <Text style={styles.sectionTitle}>Status Absensi Hari Ini</Text>
-        <View style={styles.statusContainer}>
-          <View style={styles.statusItem}>
-            <View style={[styles.statusDot, todayStatus.isCheckedIn ? styles.statusActive : styles.statusInactive]} />
-            <Text style={styles.statusLabel}>Check In</Text>
-            <Text style={styles.statusTime}>
-              {todayStatus.checkInTime || 'Belum'}
-            </Text>
+        {/* Status Absensi Hari Ini */}
+        <View style={styles.todayStatusCard}>
+          <Text style={styles.sectionTitle}>Status Absensi Hari Ini</Text>
+          <View style={styles.statusContainer}>
+            <View style={styles.statusItem}>
+              <View style={[styles.statusDot, todayStatus.isCheckedIn ? styles.statusActive : styles.statusInactive]} />
+              <Text style={styles.statusLabel}>Check In</Text>
+              <Text style={styles.statusTime}>
+                {todayStatus.checkInTime || 'Belum'}
+              </Text>
+              {todayStatus.checkInPhoto && (
+                <Text style={styles.statusPhoto}>✓ Selfie terverifikasi</Text>
+              )}
+            </View>
+            <View style={styles.statusDivider} />
+            <View style={styles.statusItem}>
+              <View style={[styles.statusDot, todayStatus.isCheckedOut ? styles.statusActive : styles.statusInactive]} />
+              <Text style={styles.statusLabel}>Check Out</Text>
+              <Text style={styles.statusTime}>
+                {todayStatus.checkOutTime || 'Belum'}
+              </Text>
+              {todayStatus.checkOutPhoto && (
+                <Text style={styles.statusPhoto}>✓ Selfie terverifikasi</Text>
+              )}
+            </View>
           </View>
-          <View style={styles.statusDivider} />
-          <View style={styles.statusItem}>
-            <View style={[styles.statusDot, todayStatus.isCheckedOut ? styles.statusActive : styles.statusInactive]} />
-            <Text style={styles.statusLabel}>Check Out</Text>
-            <Text style={styles.statusTime}>
-              {todayStatus.checkOutTime || 'Belum'}
-            </Text>
+          
+          <View style={styles.buttonContainer}>
+            {!todayStatus.isCheckedIn ? (
+              <TouchableOpacity style={styles.checkInButton} onPress={handleCheckIn}>
+                <Ionicons name="log-in-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Check In (Lokasi + Selfie)</Text>
+              </TouchableOpacity>
+            ) : !todayStatus.isCheckedOut ? (
+              <TouchableOpacity style={styles.checkOutButton} onPress={handleCheckOut}>
+                <Ionicons name="log-out-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Check Out (Lokasi + Selfie)</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.completedStatus}>
+                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                <Text style={styles.completedText}>Absensi selesai hari ini</Text>
+              </View>
+            )}
           </View>
         </View>
-        
-        <View style={styles.buttonContainer}>
-          {!todayStatus.isCheckedIn ? (
-            <TouchableOpacity style={styles.checkInButton} onPress={handleCheckIn}>
-              <Ionicons name="log-in-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Check In</Text>
+
+        {/* Statistik */}
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>Statistik Bulan Ini</Text>
+          <View style={styles.statsGrid}>
+            <StatCard
+              icon="checkmark-circle"
+              title="Hadir"
+              value={stats.totalHadir}
+              color="#4CAF50"
+              bgColor="#E8F5E9"
+            />
+            <StatCard
+              icon="medical"
+              title="Sakit"
+              value={stats.totalSakit}
+              color="#FF9800"
+              bgColor="#FFF3E0"
+            />
+            <StatCard
+              icon="time"
+              title="Terlambat"
+              value={stats.totalTerlambat}
+              color="#F44336"
+              bgColor="#FFEBEE"
+            />
+            <StatCard
+              icon="document-text"
+              title="Izin"
+              value={stats.totalIzin}
+              color="#2196F3"
+              bgColor="#E3F2FD"
+            />
+          </View>
+        </View>
+
+        {/* Menu Cepat */}
+        <View style={styles.quickMenuSection}>
+          <Text style={styles.sectionTitle}>Menu Cepat</Text>
+          <View style={styles.quickMenuGrid}>
+            <TouchableOpacity style={styles.quickMenuItem} onPress={() => router.push('/(tabs)/absensi')}>
+              <View style={[styles.quickMenuIcon, { backgroundColor: '#E3F2FD' }]}>
+                <Ionicons name="calendar" size={28} color="#2196F3" />
+              </View>
+              <Text style={styles.quickMenuText}>Absensi</Text>
             </TouchableOpacity>
-          ) : !todayStatus.isCheckedOut ? (
-            <TouchableOpacity style={styles.checkOutButton} onPress={handleCheckOut}>
-              <Ionicons name="log-out-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Check Out</Text>
+            
+            <TouchableOpacity style={styles.quickMenuItem} onPress={() => router.push('/(tabs)/riwayat')}>
+              <View style={[styles.quickMenuIcon, { backgroundColor: '#E8F5E9' }]}>
+                <Ionicons name="time" size={28} color="#4CAF50" />
+              </View>
+              <Text style={styles.quickMenuText}>Riwayat</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.completedStatus}>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-              <Text style={styles.completedText}>Absensi selesai hari ini</Text>
-            </View>
-          )}
+            
+            <TouchableOpacity style={styles.quickMenuItem}>
+              <View style={[styles.quickMenuIcon, { backgroundColor: '#FFF3E0' }]}>
+                <Ionicons name="document-text" size={28} color="#FF9800" />
+              </View>
+              <Text style={styles.quickMenuText}>Izin</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.quickMenuItem} onPress={() => router.push('/(tabs)/profil')}>
+              <View style={[styles.quickMenuIcon, { backgroundColor: '#F3E5F5' }]}>
+                <Ionicons name="person" size={28} color="#9C27B0" />
+              </View>
+              <Text style={styles.quickMenuText}>Profil</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
-      {/* Statistik */}
-      <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Statistik Bulan Ini</Text>
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon="checkmark-circle"
-            title="Hadir"
-            value={stats.totalHadir}
-            color="#4CAF50"
-            bgColor="#E8F5E9"
-          />
-          <StatCard
-            icon="medical"
-            title="Sakit"
-            value={stats.totalSakit}
-            color="#FF9800"
-            bgColor="#FFF3E0"
-          />
-          <StatCard
-            icon="time"
-            title="Terlambat"
-            value={stats.totalTerlambat}
-            color="#F44336"
-            bgColor="#FFEBEE"
-          />
-          <StatCard
-            icon="document-text"
-            title="Izin"
-            value={stats.totalIzin}
-            color="#2196F3"
-            bgColor="#E3F2FD"
-          />
-        </View>
-      </View>
+      <LocationPicker
+        visible={showLocationPicker}
+        onLocationConfirm={handleLocationConfirm}
+        onClose={() => setShowLocationPicker(false)}
+      />
 
-      {/* Menu Cepat */}
-      <View style={styles.quickMenuSection}>
-        <Text style={styles.sectionTitle}>Menu Cepat</Text>
-        <View style={styles.quickMenuGrid}>
-          <TouchableOpacity style={styles.quickMenuItem} onPress={() => router.push('/(tabs)/absensi')}>
-            <View style={[styles.quickMenuIcon, { backgroundColor: '#E3F2FD' }]}>
-              <Ionicons name="calendar" size={28} color="#2196F3" />
-            </View>
-            <Text style={styles.quickMenuText}>Absensi</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.quickMenuItem}>
-            <View style={[styles.quickMenuIcon, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name="time" size={28} color="#4CAF50" />
-            </View>
-            <Text style={styles.quickMenuText}>Riwayat</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.quickMenuItem}>
-            <View style={[styles.quickMenuIcon, { backgroundColor: '#FFF3E0' }]}>
-              <Ionicons name="document-text" size={28} color="#FF9800" />
-            </View>
-            <Text style={styles.quickMenuText}>Izin</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.quickMenuItem}>
-            <View style={[styles.quickMenuIcon, { backgroundColor: '#F3E5F5' }]}>
-              <Ionicons name="person" size={28} color="#9C27B0" />
-            </View>
-            <Text style={styles.quickMenuText}>Profil</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+      <FaceCapture
+        visible={showFaceCapture}
+        onClose={handleCloseFaceCapture}
+        onCaptureComplete={handleFaceCaptureComplete}
+        actionType={currentAction || 'in'}
+      />
+    </>
   );
 }
 
@@ -378,7 +462,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  statusLocation: {
+  statusPhoto: {
     fontSize: isSmallDevice ? 9 : 10,
     color: '#4CAF50',
     marginTop: 4,

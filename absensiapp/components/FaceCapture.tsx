@@ -1,4 +1,3 @@
-// components/FaceCapture.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -10,10 +9,11 @@ import {
   Modal,
   Dimensions,
   Platform,
+  Image,
+  Linking,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
 
 const { width } = Dimensions.get('window');
 
@@ -38,25 +38,117 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
     }
   }, [visible]);
 
+  // Cek apakah kamera tersedia
+  const checkCameraAvailability = async () => {
+    try {
+      const { status } = await CameraView.getCameraPermissionsAsync();
+      if (status !== 'granted') {
+        showCameraPermissionAlert();
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Camera check error:', error);
+      return false;
+    }
+  };
+
+  // Tampilkan alert untuk meminta izin kamera
+  const showCameraPermissionAlert = () => {
+    Alert.alert(
+      '⚠️ Akses Kamera Diperlukan',
+      'Aplikasi memerlukan akses kamera untuk mengambil foto selfie sebagai verifikasi absensi.\n\nPastikan kamera dalam kondisi baik dan tidak digunakan oleh aplikasi lain.',
+      [
+        { text: 'Batal', style: 'cancel', onPress: onClose },
+        { 
+          text: 'Buka Pengaturan', 
+          onPress: () => {
+            if (Platform.OS === 'ios') {
+              Linking.openURL('app-settings:');
+            } else {
+              Linking.openSettings();
+            }
+          }
+        },
+        { text: 'Coba Lagi', onPress: () => requestPermission() }
+      ]
+    );
+  };
+
+  // Tampilkan peringatan kamera tidak siap
+  const showCameraNotReadyAlert = () => {
+    Alert.alert(
+      '📷 Kamera Tidak Siap',
+      'Pastikan:\n\n✓ Kamera tidak digunakan oleh aplikasi lain\n✓ Izin kamera sudah diberikan\n✓ Kamera dalam kondisi berfungsi normal\n\nJika masalah berlanjut, coba restart aplikasi.',
+      [
+        { text: 'Tutup', style: 'cancel', onPress: onClose },
+        { text: 'Coba Lagi', onPress: () => setCameraReady(true) }
+      ]
+    );
+  };
+
+  // Tampilkan peringatan pencahayaan kurang
+  const showLowLightWarning = () => {
+    Alert.alert(
+      '💡 Pencahayaan Kurang',
+      'Kondisi pencahayaan kurang baik. Pastikan:\n\n✓ Wajah Anda terkena cahaya yang cukup\n✓ Hindari cahaya dari belakang (backlight)\n✓ Gunakan lampu jika diperlukan\n\nFoto dengan pencahayaan kurang mungkin tidak valid.',
+      [{ text: 'Mengerti', style: 'default' }]
+    );
+  };
+
   const takePicture = async () => {
     if (cameraRef.current && cameraReady && !capturing) {
       setCapturing(true);
       try {
+        // Cek ketersediaan kamera sebelum mengambil foto
+        const isCameraAvailable = await checkCameraAvailability();
+        if (!isCameraAvailable) {
+          showCameraPermissionAlert();
+          setCapturing(false);
+          return;
+        }
+
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.7,
+          quality: 0.8,
           base64: true,
+          exif: true, // Dapatkan info EXIF termasuk kondisi pencahayaan
         });
         
         if (photo && photo.uri) {
-          setCapturedImage(photo.uri);
-          setPreviewVisible(true);
+          // Cek kualitas foto (sederhana)
+          if (photo.base64 && photo.base64.length < 10000) {
+            // Jika ukuran foto terlalu kecil, mungkin terlalu gelap
+            Alert.alert(
+              '⚠️ Peringatan Kualitas Foto',
+              'Foto yang diambil terlihat kurang jelas. Pastikan pencahayaan cukup dan wajah terlihat jelas.',
+              [
+                { text: 'Foto Ulang', onPress: () => setCapturing(false) },
+                { text: 'Tetap Gunakan', onPress: () => {
+                  setCapturedImage(photo.uri);
+                  setPreviewVisible(true);
+                }}
+              ]
+            );
+          } else {
+            setCapturedImage(photo.uri);
+            setPreviewVisible(true);
+          }
         }
       } catch (error) {
         console.error('Error taking picture:', error);
-        Alert.alert('Error', 'Gagal mengambil foto. Silakan coba lagi.');
+        Alert.alert(
+          'Error',
+          'Gagal mengambil foto.\n\nKemungkinan penyebab:\n• Kamera sedang digunakan aplikasi lain\n• Izin kamera dicabut\n• Kamera bermasalah',
+          [
+            { text: 'Tutup', style: 'cancel' },
+            { text: 'Coba Lagi', onPress: () => setCameraReady(true) }
+          ]
+        );
       } finally {
         setCapturing(false);
       }
+    } else if (!cameraReady) {
+      showCameraNotReadyAlert();
     }
   };
 
@@ -68,16 +160,7 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
   const confirmPhoto = async () => {
     if (capturedImage) {
       try {
-        const fileName = `selfie_${Date.now()}.jpg`;
-        const newPath = `${FileSystem.documentDirectory}${fileName}`;
-        
-        // Menggunakan API baru untuk copy file
-        await FileSystem.copyAsync({
-          from: capturedImage,
-          to: newPath,
-        });
-        
-        onCaptureComplete(newPath);
+        onCaptureComplete(capturedImage);
         setCapturedImage(null);
         setPreviewVisible(false);
         onClose();
@@ -94,6 +177,7 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
           <Text style={styles.loadingText}>Meminta izin kamera...</Text>
+          <Text style={styles.loadingSubText}>Mohon tunggu sebentar</Text>
         </View>
       </Modal>
     );
@@ -103,12 +187,33 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
     return (
       <Modal visible={visible} animationType="slide" transparent={false}>
         <View style={styles.errorContainer}>
-          <Ionicons name="camera-off" size={60} color="#F44336" />
-          <Text style={styles.errorText}>Akses kamera ditolak</Text>
-          <Text style={styles.errorSubText}>Harap berikan izin kamera di pengaturan untuk melanjutkan</Text>
-          <TouchableOpacity style={styles.permissionCloseButton} onPress={onClose}>
-            <Text style={styles.permissionCloseButtonText}>Tutup</Text>
-          </TouchableOpacity>
+          <Ionicons name="camera-off" size={80} color="#F44336" />
+          <Text style={styles.errorText}>Akses Kamera Ditutup</Text>
+          <Text style={styles.errorSubText}>
+            Aplikasi memerlukan akses kamera untuk mengambil foto selfie sebagai verifikasi absensi.
+          </Text>
+          <View style={styles.errorInstructions}>
+            <Text style={styles.instructionTitle}>📱 Cara Mengaktifkan Kamera:</Text>
+            <Text style={styles.instructionItem}>1. Buka Pengaturan HP Anda</Text>
+            <Text style={styles.instructionItem}>2. Cari "Aplikasi" atau "Apps"</Text>
+            <Text style={styles.instructionItem}>3. Cari "absensiapp"</Text>
+            <Text style={styles.instructionItem}>4. Pilih "Izin" atau "Permissions"</Text>
+            <Text style={styles.instructionItem}>5. Aktifkan izin "Kamera"</Text>
+          </View>
+          <View style={styles.errorButtonGroup}>
+            <TouchableOpacity style={styles.permissionCloseButton} onPress={onClose}>
+              <Text style={styles.permissionCloseButtonText}>Tutup</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.permissionSettingsButton} onPress={() => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
+            }}>
+              <Text style={styles.permissionSettingsButtonText}>Buka Pengaturan</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     );
@@ -124,7 +229,15 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
           <Text style={styles.title}>
             {actionType === 'in' ? 'Verifikasi Wajah - Check In' : 'Verifikasi Wajah - Check Out'}
           </Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity 
+            onPress={() => Alert.alert(
+              'Info Kamera',
+              'Pastikan wajah Anda berada di dalam bingkai dan pencahayaan cukup.\n\nTips:\n• Hadapkan wajah ke kamera\n• Pastikan pencahayaan cukup\n• Jangan gunakan topi atau masker\n• Jaga jarak yang sesuai'
+            )} 
+            style={styles.infoButton}
+          >
+            <Ionicons name="help-circle" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         {!previewVisible ? (
@@ -135,6 +248,10 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
                 style={styles.camera}
                 facing="front"
                 onCameraReady={() => setCameraReady(true)}
+                onMountError={(error) => {
+                  console.error('Camera mount error:', error);
+                  Alert.alert('Error Kamera', 'Gagal mengaktifkan kamera. Pastikan tidak ada aplikasi lain yang menggunakan kamera.');
+                }}
               />
               <View style={styles.overlay}>
                 <View style={styles.faceFrame}>
@@ -144,6 +261,12 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
                   <View style={styles.faceFrameCornerBR} />
                 </View>
               </View>
+              {!cameraReady && (
+                <View style={styles.cameraLoadingOverlay}>
+                  <ActivityIndicator size="large" color="#4A90E2" />
+                  <Text style={styles.cameraLoadingText}>Mengaktifkan kamera...</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.instructionContainer}>
@@ -151,6 +274,11 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
               <Text style={styles.instructionText}>
                 Posisikan wajah Anda di dalam bingkai
               </Text>
+            </View>
+
+            <View style={styles.tipsContainer}>
+              <Ionicons name="bulb-outline" size={16} color="#FFC107" />
+              <Text style={styles.tipsText}>Pastikan pencahayaan cukup dan wajah terlihat jelas</Text>
             </View>
 
             <View style={styles.buttonContainer}>
@@ -164,17 +292,21 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
             </View>
 
             <Text style={styles.noteText}>
-              Pastikan wajah Anda terlihat jelas dan pencahayaan cukup
+              Pastikan wajah Anda terlihat jelas dan tidak tertutup
             </Text>
           </>
         ) : (
           <>
             <View style={styles.previewContainer}>
-              <View style={styles.previewPlaceholder}>
-                <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
-                <Text style={styles.previewText}>Foto berhasil diambil</Text>
-                <Text style={styles.previewSubText}>Silakan konfirmasi untuk melanjutkan</Text>
-              </View>
+              {capturedImage && (
+                <>
+                  <Image source={{ uri: capturedImage }} style={styles.previewImage} />
+                  <View style={styles.previewOverlay}>
+                    <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
+                    <Text style={styles.previewSuccessText}>Foto Berhasil!</Text>
+                  </View>
+                </>
+              )}
             </View>
 
             <View style={styles.previewButtonContainer}>
@@ -218,12 +350,30 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
+  infoButton: {
+    padding: 8,
+  },
   cameraContainer: {
     flex: 1,
     position: 'relative',
   },
   camera: {
     flex: 1,
+  },
+  cameraLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#fff',
   },
   overlay: {
     position: 'absolute',
@@ -292,6 +442,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
   },
+  tipsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,193,7,0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    gap: 6,
+    marginHorizontal: 20,
+    marginTop: 8,
+    borderRadius: 20,
+  },
+  tipsText: {
+    fontSize: 12,
+    color: '#FFC107',
+  },
   buttonContainer: {
     paddingVertical: 30,
     alignItems: 'center',
@@ -323,20 +489,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
+    position: 'relative',
   },
-  previewPlaceholder: {
+  previewImage: {
+    width: width * 0.9,
+    height: width * 0.9,
+    borderRadius: 20,
+    resizeMode: 'cover',
+  },
+  previewOverlay: {
+    position: 'absolute',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 20,
+    borderRadius: 20,
   },
-  previewText: {
-    fontSize: 20,
+  previewSuccessText: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#4CAF50',
-  },
-  previewSubText: {
-    fontSize: 14,
-    color: '#fff',
-    opacity: 0.7,
+    marginTop: 8,
   },
   previewButtonContainer: {
     flexDirection: 'row',
@@ -386,6 +559,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
   },
+  loadingSubText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#999',
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -395,7 +573,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     marginTop: 16,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#F44336',
   },
@@ -405,14 +583,53 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  errorInstructions: {
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    width: '100%',
+  },
+  instructionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  instructionItem: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  errorButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
   },
   permissionCloseButton: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  permissionCloseButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  permissionSettingsButton: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingVertical: 12,
     backgroundColor: '#4A90E2',
     borderRadius: 8,
+    alignItems: 'center',
   },
-  permissionCloseButtonText: {
+  permissionSettingsButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
