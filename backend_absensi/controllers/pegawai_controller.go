@@ -5,6 +5,7 @@ import (
 	"backend_absensi/utils"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const pegawaiCacheKey = "cache:pegawai:all"
 const pegawaiCacheTTL = 5 * time.Minute
 
 type PegawaiController struct {
@@ -24,40 +24,43 @@ type PegawaiController struct {
 
 // PegawaiResponse is the response structure for pegawai data (excludes password)
 type PegawaiResponse struct {
-	ID    uint        `json:"id"`
-	Name  string      `json:"name"`
-	Email string      `json:"email"`
-	Role  models.Role `json:"role"`
+	ID          uint        `json:"id"`
+	NamaLengkap string      `json:"nama_lengkap"`
+	Email       string      `json:"email"`
+	Role        models.Role `json:"role"`
 }
 
 // CreatePegawaiRequest is the request body for creating a pegawai
 type CreatePegawaiRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	NamaLengkap string `json:"nama_lengkap"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
 }
 
 // UpdatePegawaiRequest is the request body for updating a pegawai
 type UpdatePegawaiRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"` // optional, kosong berarti tidak diubah
+	NamaLengkap string `json:"nama_lengkap"`
+	Email       string `json:"email"`
+	Password    string `json:"password"` // optional, kosong berarti tidak diubah
 }
 
 // toResponse converts a User model to PegawaiResponse
 func toResponse(u models.User) PegawaiResponse {
 	return PegawaiResponse{
-		ID:    u.ID,
-		Name:  u.Name,
-		Email: u.Email,
-		Role:  u.Role,
+		ID:          u.ID,
+		NamaLengkap: u.NamaLengkap,
+		Email:       u.Email,
+		Role:        u.Role,
 	}
 }
 
 // invalidateCache removes the pegawai cache from Redis
 func (p *PegawaiController) invalidateCache() {
 	ctx := context.Background()
-	p.RedisClient.Del(ctx, pegawaiCacheKey)
+	iter := p.RedisClient.Scan(ctx, 0, "cache:pegawai:*", 0).Iterator()
+	for iter.Next(ctx) {
+		p.RedisClient.Del(ctx, iter.Val())
+	}
 }
 
 // ─────────────────────────────────────────────
@@ -66,8 +69,21 @@ func (p *PegawaiController) invalidateCache() {
 func (p *PegawaiController) GetAllPegawai(c *fiber.Ctx) error {
 	ctx := context.Background()
 
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 10)
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+	cacheKey := fmt.Sprintf("cache:pegawai:page:%d:limit:%d", page, limit)
+
 	// Try to get from cache
-	cached, err := p.RedisClient.Get(ctx, pegawaiCacheKey).Result()
+	cached, err := p.RedisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		// Cache hit — parse and return
 		var cachedData fiber.Map
@@ -76,9 +92,14 @@ func (p *PegawaiController) GetAllPegawai(c *fiber.Ctx) error {
 		}
 	}
 
-	// Cache miss — query database
+	// Cache miss — count total and query database
+	var total int64
+	if err := p.DB.Model(&models.User{}).Where("role = ?", models.RolePegawai).Count(&total).Error; err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to count pegawai data")
+	}
+
 	var users []models.User
-	if err := p.DB.Where("role = ?", models.RolePegawai).Find(&users).Error; err != nil {
+	if err := p.DB.Where("role = ?", models.RolePegawai).Limit(limit).Offset(offset).Find(&users).Error; err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve pegawai data")
 	}
 
@@ -87,14 +108,19 @@ func (p *PegawaiController) GetAllPegawai(c *fiber.Ctx) error {
 		response = append(response, toResponse(u))
 	}
 
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+
 	data := fiber.Map{
-		"total":   len(response),
-		"pegawai": response,
+		"total":       total,
+		"page":        page,
+		"limit":       limit,
+		"total_pages": totalPages,
+		"pegawai":     response,
 	}
 
 	// Store in cache
 	if jsonData, err := json.Marshal(data); err == nil {
-		p.RedisClient.Set(ctx, pegawaiCacheKey, string(jsonData), pegawaiCacheTTL)
+		p.RedisClient.Set(ctx, cacheKey, string(jsonData), pegawaiCacheTTL)
 	}
 
 	return utils.SuccessResponse(c, data)
@@ -126,7 +152,7 @@ func (p *PegawaiController) CreatePegawai(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body")
 	}
 
-	if req.Name == "" || req.Email == "" || req.Password == "" {
+	if req.NamaLengkap == "" || req.Email == "" || req.Password == "" {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Name, email, and password are required")
 	}
 
@@ -136,10 +162,10 @@ func (p *PegawaiController) CreatePegawai(c *fiber.Ctx) error {
 	}
 
 	user := models.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Role:     models.RolePegawai,
+		NamaLengkap: req.NamaLengkap,
+		Email:       req.Email,
+		Password:    string(hashedPassword),
+		Role:        models.RolePegawai,
 	}
 
 	if err := p.DB.Create(&user).Error; err != nil {
@@ -179,8 +205,8 @@ func (p *PegawaiController) UpdatePegawai(c *fiber.Ctx) error {
 	}
 
 	// Update fields jika dikirim
-	if req.Name != "" {
-		user.Name = req.Name
+	if req.NamaLengkap != "" {
+		user.NamaLengkap = req.NamaLengkap
 	}
 	if req.Email != "" {
 		user.Email = req.Email

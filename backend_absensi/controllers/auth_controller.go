@@ -12,6 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"log"
 )
 
 type AuthController struct {
@@ -25,10 +26,10 @@ type LoginRequest struct {
 }
 
 type RegisterRequest struct {
-	Email    string      `json:"email" binding:"required,email"`
-	Password string      `json:"password" binding:"required"`
-	Name     string      `json:"name" binding:"required"`
-	Role     models.Role `json:"role"`
+	Email       string      `json:"email" binding:"required,email"`
+	Password    string      `json:"password" binding:"required"`
+	NamaLengkap string      `json:"nama_lengkap" binding:"required"`
+	Role        models.Role `json:"role"`
 }
 
 type RefreshTokenRequest struct {
@@ -95,10 +96,10 @@ func (a *AuthController) Register(c *fiber.Ctx) error {
 
 	// Create user
 	user := models.User{
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Name:     req.Name,
-		Role:     req.Role,
+		Email:       req.Email,
+		Password:    string(hashedPassword),
+		NamaLengkap: req.NamaLengkap,
+		Role:        req.Role,
 	}
 
 	if err := a.DB.Create(&user).Error; err != nil {
@@ -109,8 +110,8 @@ func (a *AuthController) Register(c *fiber.Ctx) error {
 	}
 
 	return utils.SuccessResponse(c, fiber.Map{
-		"email": user.Email,
-		"name":  user.Name,
+		"email":        user.Email,
+		"nama_lengkap": user.NamaLengkap,
 	})
 }
 
@@ -175,8 +176,25 @@ func (a *AuthController) Logout(c *fiber.Ctx) error {
 	if ttl > 0 {
 		// Blacklist token in Redis with remaining TTL
 		ctx := context.Background()
-		if err := a.RedisClient.Set(ctx, "blacklist:"+tokenString, "revoked", ttl).Err(); err != nil {
-			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to revoke token")
+		
+		// Fallback to getting redis client from locals if a.RedisClient is somehow closed
+		rClient := a.RedisClient
+		if localsRedis, ok := c.Locals("redis").(*redis.Client); ok && localsRedis != nil {
+			rClient = localsRedis
+		}
+
+		if err := rClient.Set(ctx, "blacklist:"+tokenString, "revoked", ttl).Err(); err != nil {
+			// If client is closed, try to reconnect locally as fallback
+			if err.Error() == "redis: client is closed" {
+				log.Println("Redis client closed. Reconnecting locally for logout...")
+				tempClient := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+				if tempErr := tempClient.Set(ctx, "blacklist:"+tokenString, "revoked", ttl).Err(); tempErr == nil {
+					return utils.SuccessResponse(c, fiber.Map{"message": "Logged out successfully (reconnected)"})
+				}
+				tempClient.Close()
+			}
+			log.Printf("Redis Set Error during logout: %v\n", err)
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to revoke token: "+err.Error())
 		}
 	}
 
@@ -196,9 +214,9 @@ func (a *AuthController) GetProfile(c *fiber.Ctx) error {
 	}
 
 	return utils.SuccessResponse(c, fiber.Map{
-		"id":    userData.ID,
-		"email": userData.Email,
-		"name":  userData.Name,
-		"role":  userData.Role,
+		"id":           userData.ID,
+		"email":        userData.Email,
+		"nama_lengkap": userData.NamaLengkap,
+		"role":         userData.Role,
 	})
 }

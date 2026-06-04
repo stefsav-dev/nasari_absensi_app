@@ -2,7 +2,7 @@ package models
 
 import "gorm.io/gorm"
 
-type Lokasi struct {
+type Location struct {
 	gorm.Model
 	NamaLokasi string  `json:"nama_lokasi" gorm:"not null"`
 	Latitude   float64 `json:"latitude" gorm:"not null"`
@@ -10,6 +10,6 @@ type Lokasi struct {
 	Radius     float64 `json:"radius" gorm:"not null;default:100"`
 }
 
-func (Lokasi) TableName() string {
-	return "lokasi"
+func (Location) TableName() string {
+	return "location"
 }

@@ -19,7 +19,7 @@ export interface ApiErrorResponse {
 }
 
 export interface RegisterRequest {
-  name: string;
+  nama_lengkap: string;
   email: string;
   password: string;
   role?: string;
@@ -45,4 +45,8 @@ export async function loginUser(data: LoginRequest): Promise<LoginResponse> {
 export async function registerUser(data: RegisterRequest): Promise<RegisterResponse> {
   const response = await api.post<RegisterResponse>("/register", data);
   return response.data;
+}
+
+export async function logoutUser(): Promise<void> {
+  await api.post("/protected/logout");
 }

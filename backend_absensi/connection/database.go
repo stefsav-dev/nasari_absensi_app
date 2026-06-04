@@ -26,7 +26,7 @@ func ConnectDatabase() *gorm.DB {
 	}
 	log.Println("Database connection established")
 
-	if err := db.AutoMigrate(&models.User{}, &models.Absensi{}, &models.Profile{}, &models.Lokasi{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Absensi{}, &models.Employes{}, &models.Location{}); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
@@ -38,16 +38,16 @@ func ConnectDatabase() *gorm.DB {
 func seedDefaultUsers(db *gorm.DB) {
 	users := []models.User{
 		{
-			Email:    "admin@nasari.test",
-			Password: "admin123",
-			Name:     "Admin Nasari",
-			Role:     models.RoleAdmin,
+			Email:       "admin@nasari.test",
+			Password:    "admin123",
+			NamaLengkap: "Admin Nasari",
+			Role:        models.RoleAdmin,
 		},
 		{
-			Email:    "superadmin@nasari.test",
-			Password: "superadmin123",
-			Name:     "Superadmin Nasari",
-			Role:     models.RoleSuperadmin,
+			Email:       "superadmin@nasari.test",
+			Password:    "superadmin123",
+			NamaLengkap: "Superadmin Nasari",
+			Role:        models.RoleSuperadmin,
 		},
 	}
 

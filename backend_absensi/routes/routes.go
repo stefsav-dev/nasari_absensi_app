@@ -85,6 +85,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	superAdminRoutes.Put("/absensi/:id", absensiController.UpdateAbsensi)
 	superAdminRoutes.Delete("/absensi/:id", absensiController.DeleteAbsensi)
 
+	//admin kantor cabang routes
 	adminKantorCabangRoutes := protected.Group("/adm_kantor_cabang")
 	adminKantorCabangRoutes.Use(middleware.AuthMiddleware(string(models.RoleAdminKantorCabang)))
 	adminKantorCabangRoutes.Get("/dashboard", func(c *fiber.Ctx) error {
@@ -104,4 +105,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	pegawaiRoutes.Get("/dashboard", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Welcome to the pegawai dashboard!"})
 	})
+	pegawaiRoutes.Get("/profile", authController.GetProfile)
+
+	//absensi routes
+	pegawaiRoutes.Get("/absensi", absensiController.GetAbsensiByID)
+	pegawaiRoutes.Post("/absensi", absensiController.CreateAbsensi)
+
 }

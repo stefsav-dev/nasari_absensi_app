@@ -49,7 +49,7 @@ func toAbsensiResponse(a models.Absensi) AbsensiResponse {
 		UpdatedAt:     a.UpdatedAt,
 		User: UserInfo{
 			ID:    a.User.ID,
-			Name:  a.User.Name,
+			Name:  a.User.NamaLengkap,
 			Email: a.User.Email,
 		},
 	}

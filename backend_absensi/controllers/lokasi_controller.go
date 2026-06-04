@@ -27,7 +27,7 @@ type LokasiResponse struct {
 }
 
 // toLokasiResponse converts models.Lokasi → LokasiResponse
-func toLokasiResponse(l models.Lokasi) LokasiResponse {
+func toLokasiResponse(l models.Location) LokasiResponse {
 	return LokasiResponse{
 		ID:         l.ID,
 		NamaLokasi: l.NamaLokasi,
@@ -59,7 +59,7 @@ type UpdateLokasiRequest struct {
 // GET all lokasi
 // ─────────────────────────────────────────────
 func (l *LokasiController) GetAllLokasi(c *fiber.Ctx) error {
-	var lokasi []models.Lokasi
+	var lokasi []models.Location
 	if err := l.DB.Find(&lokasi).Error; err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve lokasi data")
 	}
@@ -85,7 +85,7 @@ func (l *LokasiController) GetLokasiByID(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid ID format")
 	}
 
-	var lokasi models.Lokasi
+	var lokasi models.Location
 	if err := l.DB.First(&lokasi, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return utils.ErrorResponse(c, fiber.StatusNotFound, "Lokasi not found")
@@ -115,7 +115,7 @@ func (l *LokasiController) CreateLokasi(c *fiber.Ctx) error {
 		req.Radius = 100
 	}
 
-	lokasi := models.Lokasi{
+	lokasi := models.Location{
 		NamaLokasi: req.NamaLokasi,
 		Latitude:   req.Latitude,
 		Longitude:  req.Longitude,
@@ -143,7 +143,7 @@ func (l *LokasiController) UpdateLokasi(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid ID format")
 	}
 
-	var lokasi models.Lokasi
+	var lokasi models.Location
 	if err := l.DB.First(&lokasi, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return utils.ErrorResponse(c, fiber.StatusNotFound, "Lokasi not found")
@@ -189,7 +189,7 @@ func (l *LokasiController) DeleteLokasi(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid ID format")
 	}
 
-	var lokasi models.Lokasi
+	var lokasi models.Location
 	if err := l.DB.First(&lokasi, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return utils.ErrorResponse(c, fiber.StatusNotFound, "Lokasi not found")

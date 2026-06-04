@@ -10,8 +10,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../../store';
+import { logoutUser } from '../../store/authSlice';
 
 export default function ProfilScreen() {
+  const dispatch = useDispatch<AppDispatch>();
+
   const handleLogout = () => {
     Alert.alert(
       'Konfirmasi',
@@ -21,7 +26,8 @@ export default function ProfilScreen() {
         { 
           text: 'Logout', 
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            await dispatch(logoutUser());
             router.replace('/login');
           }
         },

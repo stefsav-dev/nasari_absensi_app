@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { logoutUser } from "@/lib/auth";
 import {
   LayoutDashboard,
   Users,
@@ -61,10 +62,16 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  function handleLogout() {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    router.push("/");
+  async function handleLogout() {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout API failed:", error);
+    } finally {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      router.push("/");
+    }
   }
 
   return (

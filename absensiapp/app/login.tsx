@@ -1,4 +1,3 @@
-// app/login.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -16,12 +15,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../store';
+import { loginUser } from '../store/authSlice';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const dispatch = useDispatch<AppDispatch>();
+  const { loading, error } = useSelector((state: RootState) => state.auth);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -39,23 +43,21 @@ export default function LoginScreen() {
       return;
     }
 
-    setLoading(true);
-
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Contoh validasi sederhana
-      if (email === 'admin@example.com' && password === '123456') {
+      const resultAction = await dispatch(loginUser({ email, password }));
+
+      if (loginUser.fulfilled.match(resultAction)) {
         Alert.alert('Sukses', 'Login berhasil!');
-        // Ganti dari '/(tabs)' menjadi '/(tabs)/index'
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Error', 'Email atau password salah!');
+        if (resultAction.payload) {
+          Alert.alert('Error', resultAction.payload as string);
+        } else {
+          Alert.alert('Error', 'Email atau password salah!');
+        }
       }
-    } catch (error) {
+    } catch (err) {
       Alert.alert('Error', 'Terjadi kesalahan. Silakan coba lagi.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -67,7 +69,7 @@ export default function LoginScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView 
+          <ScrollView
             contentContainerStyle={styles.scrollContainer}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -148,12 +150,12 @@ export default function LoginScreen() {
                 </TouchableOpacity>
 
                 <View style={styles.registerContainer}>
-                  <Text style={styles.registerText}>Belum punya akun? </Text>
+                  {/* <Text style={styles.registerText}>Belum punya akun? </Text>
                   <TouchableOpacity
                     onPress={() => Alert.alert('Info', 'Fitur registrasi akan segera hadir')}
                   >
                     <Text style={styles.registerLink}>Daftar Sekarang</Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                 </View>
               </View>
             </View>

@@ -73,10 +73,10 @@ func TestRegister_Success(t *testing.T) {
 	defer mr.Close()
 
 	reqBody := RegisterRequest{
-		Email:    "test@example.com",
-		Password: "password123",
-		Name:     "Test User",
-		Role:     models.RolePegawai,
+		Email:       "test@example.com",
+		Password:    "password123",
+		NamaLengkap: "Test User",
+		Role:        models.RolePegawai,
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 
