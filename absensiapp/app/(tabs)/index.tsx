@@ -9,11 +9,24 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
+  LogBox,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import LocationPicker from '../../components/LocationPicker';
 import FaceCapture from '../../components/FaceCapture';
+import axiosInstance from '../../utils/axios';
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
 
 const { width, height } = Dimensions.get('window');
 const isSmallDevice = width < 375;
@@ -53,9 +66,71 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     updateDateTime();
+    fetchProfile();
+    setupNotifications();
     const interval = setInterval(updateDateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await axiosInstance.get('/protected/profile');
+      if (response.data && response.data.success && response.data.data) {
+        setUserName(response.data.data.nama_lengkap);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  const setupNotifications = async () => {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      return;
+    }
+
+    // Cancel all previously scheduled notifications to avoid duplicates
+    await Notifications.cancelAllScheduledNotificationsAsync();
+
+    // 1. Notifikasi Terlambat: Jam 08:16 (Senin - Sabtu)
+    for (let i = 2; i <= 7; i++) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Peringatan Absensi',
+          body: 'Maaf anda terlambat',
+          sound: true,
+        },
+        trigger: { type: 'weekly', weekday: i, hour: 8, minute: 16 } as any,
+      });
+    }
+
+    // 2. Notifikasi Pulang: Jam 17:00 (Senin - Jumat)
+    for (let i = 2; i <= 6; i++) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Waktu Pulang',
+          body: 'Saat nya Pulang, saat nya absen pulang',
+          sound: true,
+        },
+        trigger: { type: 'weekly', weekday: i, hour: 17, minute: 0 } as any,
+      });
+    }
+
+    // 3. Notifikasi Pulang: Jam 12:00 (Sabtu)
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Waktu Pulang',
+        body: 'Saat nya Pulang, saat nya absen pulang',
+        sound: true,
+      },
+      trigger: { type: 'weekly', weekday: 7, hour: 12, minute: 0 } as any,
+    });
+  };
 
   const updateDateTime = () => {
     const now = new Date();

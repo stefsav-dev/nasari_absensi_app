@@ -2,8 +2,14 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-// Using localtunnel URL so your physical device can connect regardless of Wi-Fi/Firewall
-const API_URL = 'https://nine-bars-dig.loca.lt/api';
+// URL Configurations:
+// 1. If using Localtunnel (required if your phone and PC are on different networks, or if using Expo --tunnel):
+// const API_URL = 'https://nine-bars-dig.loca.lt/api'; 
+// (Make sure to run `npx localtunnel --port 4000` in a new terminal if you use this)
+// 
+// 2. If your phone and PC are on the SAME Wi-Fi network:
+// const API_URL = 'http://192.168.0.123:4000/api'; // Replace with your computer's local IP
+const API_URL = 'http://192.168.0.123:4000/api';
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
