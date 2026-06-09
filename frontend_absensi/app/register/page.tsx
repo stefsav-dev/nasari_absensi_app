@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRegister } from "@/hooks/use-register";
-import { Link } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 export default function RegisterPage() {
@@ -13,13 +13,33 @@ export default function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
-    const { mutate, isPending, isError, error } = useRegister()
+    const { mutate, isPending, isError, isSuccess, error } = useRegister()
 
     const errorMessage = error?.response?.data?.error ?? error?.message ?? "Terjadi kesalahan";
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         mutate({ nama_lengkap: namaLengkap, email: email, password: password })
+    }
+
+    if (isSuccess) {
+        return (
+            <div className="flex min-h-svh items-center justify-center p-6">
+                <Card className="w-full max-w-md text-center">
+                    <CardHeader>
+                        <CardTitle className="text-2xl text-primary">Registrasi Berhasil</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-muted-foreground">
+                            Terima kasih sudah mendaftar. Tunggu ACC dari admin.
+                        </p>
+                        <Button className="w-full" asChild>
+                            <Link href="/">Kembali ke Login</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
     }
 
     return (

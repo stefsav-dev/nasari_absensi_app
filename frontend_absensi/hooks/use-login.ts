@@ -15,8 +15,17 @@ export function useLogin() {
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
 
-      // Redirect to dashboard
-      router.push("/admin/dashboard");
+      try {
+        const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+        if (payload.role === "pegawai") {
+          router.push("/pegawai/dashboard");
+        } else {
+          router.push("/admin/dashboard");
+        }
+      } catch {
+        // Fallback
+        router.push("/admin/dashboard");
+      }
     },
     onError: (error: AxiosError<ApiErrorResponse>) => {
       // Error is handled by the component consuming this hook

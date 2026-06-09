@@ -11,10 +11,10 @@ export function useRegister() {
    return useMutation({
     mutationFn: (data: RegisterRequest) => registerUser(data),
     onSuccess: (data) => {
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("refresh_token", data.refresh_token);
-        
-        router.push("/");
+        // Tokens are still saved if backend returns them, but we don't automatically redirect
+        // so the user can see the success message.
+        if (data?.access_token) localStorage.setItem("access_token", data.access_token);
+        if (data?.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
     },
     onError: (error: AxiosError<ApiErrorResponse>) => {
         console.error(
