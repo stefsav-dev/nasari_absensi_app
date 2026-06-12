@@ -76,3 +76,10 @@ export async function updateAbsensi(
 export async function deleteAbsensi(id: number): Promise<void> {
   await api.delete(`/protected/admin/absensi/${id}`);
 }
+
+export async function exportAbsensiExcel(): Promise<Blob> {
+  const response = await api.get<Blob>("/protected/admin/absensi-export", {
+    responseType: "blob",
+  });
+  return response.data;
+}

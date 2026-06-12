@@ -59,6 +59,7 @@ import { Label } from "@/components/ui/label";
 
 import { useAbsensi, useCreateAbsensi, useUpdateAbsensi, useDeleteAbsensi } from "@/hooks/use-absensi";
 import { usePegawai } from "@/hooks/use-pegawai";
+import { exportAbsensiExcel } from "@/lib/absensi";
 
 function getStatusBadgeVariant(status: string) {
   switch (status) {
@@ -105,6 +106,7 @@ function formatDuration(startStr: string, endStr: string) {
 
 export default function AbsensiPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   // Dialog states
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -191,6 +193,27 @@ export default function AbsensiPage() {
     setIsAddOpen(true);
   };
 
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const blob = await exportAbsensiExcel();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `export_absensi_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export absensi", error);
+      alert("Gagal export data absensi. Pastikan backend berjalan dan Anda sudah login.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const absensiList = absensiData?.absensi || [];
 
   const filteredData = absensiList.filter((item) =>
@@ -213,9 +236,9 @@ export default function AbsensiPage() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Download className="mr-2 size-4" />
-            Export
+          <Button variant="outline" className="w-full sm:w-auto" onClick={handleExport} disabled={isExporting}>
+            <Download className={`mr-2 size-4 ${isExporting ? "animate-pulse" : ""}`} />
+            {isExporting ? "Exporting..." : "Export"}
           </Button>
           {/* <Button className="w-full sm:w-auto" onClick={openAdd}>
             <Plus className="mr-2 size-4" />

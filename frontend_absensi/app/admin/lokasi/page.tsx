@@ -137,7 +137,7 @@ export default function LokasiPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Daftar Lokasi Absensi</CardTitle>
+              <CardTitle>Daftar Lokasi Kantor Pusat & Cabang Absensi</CardTitle>
               <CardDescription>
                 {isLoading
                   ? "Memuat data..."

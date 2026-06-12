@@ -8,7 +8,7 @@ import { useRegister } from "@/hooks/use-register";
 import { useState } from "react"
 
 export default function RegisterPage() {
-    const [name, setName] = useState("");
+    const [namaLengkap, setNamaLengkap] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     
@@ -19,7 +19,7 @@ export default function RegisterPage() {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        mutate({ name, email, password, role: "pegawai" });
+        mutate({ nama_lengkap: namaLengkap, email, password, role: "pegawai" });
     }
 
     return (
@@ -44,8 +44,8 @@ export default function RegisterPage() {
                                 id="nama_lengkap"
                                 type="text"
                                 placeholder="Masukkan Nama Lengkap Anda"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
+                                value={namaLengkap}
+                                onChange={(e) => setNamaLengkap(e.target.value)}
                                 required
                                 disabled={isPending}
                             />

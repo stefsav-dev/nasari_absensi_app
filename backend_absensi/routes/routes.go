@@ -15,6 +15,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	pegawaiController := &controllers.PegawaiController{DB: db, RedisClient: redisClient}
 	lokasiController := &controllers.LokasiController{DB: db}
 	absensiController := &controllers.AbsensiController{DB: db, RedisClient: redisClient}
+	exportController := &controllers.ExportController{DB: db}
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Welcome to the Nasari Absensi API!"})
@@ -46,6 +47,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 
 	// Absensi routes
 	adminRoutes.Get("/absensi", absensiController.GetAllAbsensi)
+	adminRoutes.Get("/absensi-export", exportController.ExportAbsensiExcel)
+	adminRoutes.Get("/absensi/export", exportController.ExportAbsensiExcel)
 	adminRoutes.Get("/absensi/:id", absensiController.GetAbsensiByID)
 	adminRoutes.Post("/absensi", absensiController.CreateAbsensi)
 	adminRoutes.Put("/absensi/:id", absensiController.UpdateAbsensi)
@@ -80,6 +83,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 
 	// Absensi routes
 	superAdminRoutes.Get("/absensi", absensiController.GetAllAbsensi)
+	superAdminRoutes.Get("/absensi-export", exportController.ExportAbsensiExcel)
+	superAdminRoutes.Get("/absensi/export", exportController.ExportAbsensiExcel)
 	superAdminRoutes.Get("/absensi/:id", absensiController.GetAbsensiByID)
 	superAdminRoutes.Post("/absensi", absensiController.CreateAbsensi)
 	superAdminRoutes.Put("/absensi/:id", absensiController.UpdateAbsensi)
