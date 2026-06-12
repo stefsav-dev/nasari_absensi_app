@@ -37,7 +37,7 @@ export default function DashboardScreen() {
   const [userName, setUserName] = useState('Ahmad Fauzi');
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
-  
+
   // State untuk LocationPicker dan FaceCapture
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showFaceCapture, setShowFaceCapture] = useState(false);
@@ -62,11 +62,14 @@ export default function DashboardScreen() {
     checkOutLocation: null as any,
     checkInPhoto: null as string | null,
     checkOutPhoto: null as string | null,
+    absensiId: null as number | null,
   });
+  const [submittingAbsensi, setSubmittingAbsensi] = useState(false);
 
   useEffect(() => {
     updateDateTime();
     fetchProfile();
+    fetchTodayAbsensi();
     setupNotifications();
     const interval = setInterval(updateDateTime, 1000);
     return () => clearInterval(interval);
@@ -80,6 +83,53 @@ export default function DashboardScreen() {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  const formatTimeFromApi = (dateValue?: string) => {
+    if (!dateValue || dateValue.startsWith('0001-')) {
+      return '';
+    }
+
+    return new Date(dateValue).toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  };
+
+  const fetchTodayAbsensi = async () => {
+    try {
+      const response = await axiosInstance.get('/protected/pegawai/absensi');
+      const todayAbsensi = response.data?.data?.absensi;
+      if (!todayAbsensi) {
+        return;
+      }
+
+      const checkInTime = formatTimeFromApi(todayAbsensi.absensi_masuk);
+      const checkOutTime = formatTimeFromApi(todayAbsensi.absensi_pulang);
+
+      setTodayStatus({
+        isCheckedIn: !!checkInTime,
+        isCheckedOut: !!checkOutTime,
+        checkInTime,
+        checkOutTime,
+        checkInLocation: todayAbsensi.latitude_masuk ? {
+          latitude: todayAbsensi.latitude_masuk,
+          longitude: todayAbsensi.longitude_masuk,
+          accuracy: todayAbsensi.akurasi_masuk,
+        } : null,
+        checkOutLocation: todayAbsensi.latitude_pulang ? {
+          latitude: todayAbsensi.latitude_pulang,
+          longitude: todayAbsensi.longitude_pulang,
+          accuracy: todayAbsensi.akurasi_pulang,
+        } : null,
+        checkInPhoto: todayAbsensi.has_foto_masuk || todayAbsensi.foto_masuk ? 'saved' : null,
+        checkOutPhoto: todayAbsensi.has_foto_pulang || todayAbsensi.foto_pulang ? 'saved' : null,
+        absensiId: todayAbsensi.id,
+      });
+    } catch (error) {
+      console.error('Gagal mengambil absensi hari ini:', error);
     }
   };
 
@@ -190,7 +240,17 @@ export default function DashboardScreen() {
     setShowFaceCapture(true);
   };
 
-  const handleFaceCaptureComplete = async (photoUri: string) => {
+  const handleFaceCaptureComplete = async (photoUri: string, photoBase64?: string) => {
+    if (!tempLocation || !currentAction) {
+      Alert.alert('Error', 'Data lokasi atau aksi absensi tidak lengkap. Silakan coba lagi.');
+      return false;
+    }
+
+    if (!photoBase64) {
+      Alert.alert('Error', 'Foto gagal diproses. Silakan ambil ulang foto.');
+      return false;
+    }
+
     const now = new Date();
     const timeString = now.toLocaleTimeString('id-ID', {
       hour: '2-digit',
@@ -198,42 +258,86 @@ export default function DashboardScreen() {
       second: '2-digit',
     });
 
+    setSubmittingAbsensi(true);
     if (currentAction === 'in') {
-      setTodayStatus({
-        ...todayStatus,
-        isCheckedIn: true,
-        checkInTime: timeString,
-        checkInLocation: tempLocation,
-        checkInPhoto: photoUri,
-      });
-      
-      // Update statistik
-      setStats(prev => ({
-        ...prev,
-        totalHadir: prev.totalHadir + 1,
-      }));
-      
-      Alert.alert(
-        'Sukses',
-        `✅ Check In berhasil!\n\n📅 Waktu: ${timeString}\n📍 Lokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\n🎯 Akurasi: ${Math.round(tempLocation.accuracy)} meter\n📸 Foto selfie telah tersimpan`
-      );
+      try {
+        const response = await axiosInstance.post('/protected/pegawai/absensi', {
+          status: 'Hadir',
+          absensi_masuk: now.toISOString(),
+          foto_masuk: photoBase64,
+          latitude: tempLocation.latitude,
+          longitude: tempLocation.longitude,
+          akurasi: tempLocation.accuracy,
+        });
+        const savedAbsensi = response.data?.data;
+
+        setTodayStatus({
+          ...todayStatus,
+          isCheckedIn: true,
+          checkInTime: timeString,
+          checkInLocation: tempLocation,
+          checkInPhoto: photoUri,
+          absensiId: savedAbsensi?.id || null,
+        });
+
+        // Update statistik
+        setStats(prev => ({
+          ...prev,
+          totalHadir: prev.totalHadir + 1,
+        }));
+
+        Alert.alert(
+          'Sukses',
+          `✅ Check In berhasil dan tersimpan di database!\n\n📅 Waktu: ${timeString}\n📍 Lokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\n🎯 Akurasi: ${Math.round(tempLocation.accuracy)} meter\n📸 Foto selfie telah tersimpan`
+        );
+      } catch (error: any) {
+        console.error('Gagal menyimpan check in:', error?.response?.data || error);
+        Alert.alert('Error', error?.response?.data?.error || 'Gagal menyimpan check in ke database.');
+        return false;
+      } finally {
+        setSubmittingAbsensi(false);
+      }
     } else if (currentAction === 'out') {
-      setTodayStatus({
-        ...todayStatus,
-        isCheckedOut: true,
-        checkOutTime: timeString,
-        checkOutLocation: tempLocation,
-        checkOutPhoto: photoUri,
-      });
-      
-      Alert.alert(
-        'Sukses',
-        `✅ Check Out berhasil!\n\n📅 Waktu: ${timeString}\n📍 Lokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\n🎯 Akurasi: ${Math.round(tempLocation.accuracy)} meter\n📸 Foto selfie telah tersimpan`
-      );
+      if (!todayStatus.absensiId) {
+        setSubmittingAbsensi(false);
+        Alert.alert('Error', 'Data check in belum tersedia. Silakan check in ulang atau buka kembali aplikasi.');
+        return false;
+      }
+
+      try {
+        await axiosInstance.put(`/protected/pegawai/absensi/${todayStatus.absensiId}`, {
+          status: 'Hadir',
+          absensi_pulang: now.toISOString(),
+          foto_pulang: photoBase64,
+          latitude: tempLocation.latitude,
+          longitude: tempLocation.longitude,
+          akurasi: tempLocation.accuracy,
+        });
+
+        setTodayStatus({
+          ...todayStatus,
+          isCheckedOut: true,
+          checkOutTime: timeString,
+          checkOutLocation: tempLocation,
+          checkOutPhoto: photoUri,
+        });
+
+        Alert.alert(
+          'Sukses',
+          `✅ Check Out berhasil dan tersimpan di database!\n\n📅 Waktu: ${timeString}\n📍 Lokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\n🎯 Akurasi: ${Math.round(tempLocation.accuracy)} meter\n📸 Foto selfie telah tersimpan`
+        );
+      } catch (error: any) {
+        console.error('Gagal menyimpan check out:', error?.response?.data || error);
+        Alert.alert('Error', error?.response?.data?.error || 'Gagal menyimpan check out ke database.');
+        return false;
+      } finally {
+        setSubmittingAbsensi(false);
+      }
     }
-    
+
     setTempLocation(null);
     setCurrentAction(null);
+    return true;
   };
 
   const handleCloseFaceCapture = () => {
@@ -267,7 +371,7 @@ export default function DashboardScreen() {
             <Text style={styles.welcomeText}>Selamat Datang,</Text>
             <Text style={styles.userName}>{userName}</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.notificationButton}
             onPress={() => Alert.alert('Info', 'Fitur notifikasi akan segera hadir')}
           >
@@ -310,17 +414,29 @@ export default function DashboardScreen() {
               )}
             </View>
           </View>
-          
+
           <View style={styles.buttonContainer}>
             {!todayStatus.isCheckedIn ? (
-              <TouchableOpacity style={styles.checkInButton} onPress={handleCheckIn}>
+              <TouchableOpacity
+                style={[styles.checkInButton, submittingAbsensi && styles.disabledButton]}
+                onPress={handleCheckIn}
+                disabled={submittingAbsensi}
+              >
                 <Ionicons name="log-in-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Check In (Lokasi + Selfie)</Text>
+                <Text style={styles.buttonText}>
+                  {submittingAbsensi ? 'Menyimpan...' : 'Check In (Lokasi + Selfie)'}
+                </Text>
               </TouchableOpacity>
             ) : !todayStatus.isCheckedOut ? (
-              <TouchableOpacity style={styles.checkOutButton} onPress={handleCheckOut}>
+              <TouchableOpacity
+                style={[styles.checkOutButton, submittingAbsensi && styles.disabledButton]}
+                onPress={handleCheckOut}
+                disabled={submittingAbsensi}
+              >
                 <Ionicons name="log-out-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Check Out (Lokasi + Selfie)</Text>
+                <Text style={styles.buttonText}>
+                  {submittingAbsensi ? 'Menyimpan...' : 'Check Out (Lokasi + Selfie)'}
+                </Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.completedStatus}>
@@ -376,21 +492,21 @@ export default function DashboardScreen() {
               </View>
               <Text style={styles.quickMenuText}>Absensi</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.quickMenuItem} onPress={() => router.push('/(tabs)/riwayat')}>
               <View style={[styles.quickMenuIcon, { backgroundColor: '#E8F5E9' }]}>
                 <Ionicons name="time" size={28} color="#4CAF50" />
               </View>
               <Text style={styles.quickMenuText}>Riwayat</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.quickMenuItem}>
               <View style={[styles.quickMenuIcon, { backgroundColor: '#FFF3E0' }]}>
                 <Ionicons name="document-text" size={28} color="#FF9800" />
               </View>
               <Text style={styles.quickMenuText}>Izin</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.quickMenuItem} onPress={() => router.push('/(tabs)/profil')}>
               <View style={[styles.quickMenuIcon, { backgroundColor: '#F3E5F5' }]}>
                 <Ionicons name="person" size={28} color="#9C27B0" />
@@ -567,6 +683,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 8,
   },
+  disabledButton: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: '#fff',
     fontSize: isSmallDevice ? 14 : 16,
@@ -594,8 +713,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statCard: {
-    width: isTablet 
-      ? (width - 56) / 4 
+    width: isTablet
+      ? (width - 56) / 4
       : (width - (isSmallDevice ? 48 : 56)) / 2,
     padding: isSmallDevice ? 12 : 16,
     borderRadius: 12,
@@ -631,8 +750,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   quickMenuItem: {
-    width: isTablet 
-      ? (width - 56) / 4 
+    width: isTablet
+      ? (width - 56) / 4
       : (width - (isSmallDevice ? 48 : 56)) / 2,
     alignItems: 'center',
     marginBottom: 16,

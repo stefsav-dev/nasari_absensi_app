@@ -26,27 +26,43 @@ type UserInfo struct {
 
 // AbsensiResponse is the JSON response structure
 type AbsensiResponse struct {
-	ID            uint      `json:"id"`
-	UserID        uint      `json:"user_id"`
-	AbsensiID     string    `json:"absensi_id"`
-	Status        string    `json:"status"`
-	AbsensiMasuk  time.Time `json:"absensi_masuk"`
-	AbsensiPulang time.Time `json:"absensi_pulang"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	User          UserInfo  `json:"user"`
+	ID              uint      `json:"id"`
+	UserID          uint      `json:"user_id"`
+	AbsensiID       string    `json:"absensi_id"`
+	Status          string    `json:"status"`
+	AbsensiMasuk    time.Time `json:"absensi_masuk"`
+	AbsensiPulang   time.Time `json:"absensi_pulang"`
+	HasFotoMasuk    bool      `json:"has_foto_masuk"`
+	HasFotoPulang   bool      `json:"has_foto_pulang"`
+	LatitudeMasuk   float64   `json:"latitude_masuk"`
+	LongitudeMasuk  float64   `json:"longitude_masuk"`
+	AkurasiMasuk    float64   `json:"akurasi_masuk"`
+	LatitudePulang  float64   `json:"latitude_pulang"`
+	LongitudePulang float64   `json:"longitude_pulang"`
+	AkurasiPulang   float64   `json:"akurasi_pulang"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	User            UserInfo  `json:"user"`
 }
 
 func toAbsensiResponse(a models.Absensi) AbsensiResponse {
 	return AbsensiResponse{
-		ID:            a.ID,
-		UserID:        a.UserID,
-		AbsensiID:     a.AbsensiID,
-		Status:        a.Status,
-		AbsensiMasuk:  a.AbsensiMasuk,
-		AbsensiPulang: a.AbsensiPulang,
-		CreatedAt:     a.CreatedAt,
-		UpdatedAt:     a.UpdatedAt,
+		ID:              a.ID,
+		UserID:          a.UserID,
+		AbsensiID:       a.AbsensiID,
+		Status:          a.Status,
+		AbsensiMasuk:    a.AbsensiMasuk,
+		AbsensiPulang:   a.AbsensiPulang,
+		HasFotoMasuk:    a.FotoMasuk != "",
+		HasFotoPulang:   a.FotoPulang != "",
+		LatitudeMasuk:   a.LatitudeMasuk,
+		LongitudeMasuk:  a.LongitudeMasuk,
+		AkurasiMasuk:    a.AkurasiMasuk,
+		LatitudePulang:  a.LatitudePulang,
+		LongitudePulang: a.LongitudePulang,
+		AkurasiPulang:   a.AkurasiPulang,
+		CreatedAt:       a.CreatedAt,
+		UpdatedAt:       a.UpdatedAt,
 		User: UserInfo{
 			ID:    a.User.ID,
 			Name:  a.User.NamaLengkap,
@@ -56,16 +72,32 @@ func toAbsensiResponse(a models.Absensi) AbsensiResponse {
 }
 
 type CreateAbsensiRequest struct {
-	UserID        uint   `json:"user_id"`
-	Status        string `json:"status"`
-	AbsensiMasuk  string `json:"absensi_masuk"`  // RFC3339 formatted time
-	AbsensiPulang string `json:"absensi_pulang"` // RFC3339 formatted time (optional)
+	UserID         uint    `json:"user_id"`
+	Status         string  `json:"status"`
+	AbsensiMasuk   string  `json:"absensi_masuk"`  // RFC3339 formatted time
+	AbsensiPulang  string  `json:"absensi_pulang"` // RFC3339 formatted time (optional)
+	FotoMasuk      string  `json:"foto_masuk"`
+	FotoPulang     string  `json:"foto_pulang"`
+	Latitude       float64 `json:"latitude"`
+	Longitude      float64 `json:"longitude"`
+	Akurasi        float64 `json:"akurasi"`
+	LatitudeMasuk  float64 `json:"latitude_masuk"`
+	LongitudeMasuk float64 `json:"longitude_masuk"`
+	AkurasiMasuk   float64 `json:"akurasi_masuk"`
 }
 
 type UpdateAbsensiRequest struct {
-	Status        string `json:"status"`
-	AbsensiMasuk  string `json:"absensi_masuk"`
-	AbsensiPulang string `json:"absensi_pulang"`
+	Status          string  `json:"status"`
+	AbsensiMasuk    string  `json:"absensi_masuk"`
+	AbsensiPulang   string  `json:"absensi_pulang"`
+	FotoMasuk       string  `json:"foto_masuk"`
+	FotoPulang      string  `json:"foto_pulang"`
+	LatitudePulang  float64 `json:"latitude_pulang"`
+	LongitudePulang float64 `json:"longitude_pulang"`
+	AkurasiPulang   float64 `json:"akurasi_pulang"`
+	Latitude        float64 `json:"latitude"`
+	Longitude       float64 `json:"longitude"`
+	Akurasi         float64 `json:"akurasi"`
 }
 
 // ─────────────────────────────────────────────
@@ -109,6 +141,34 @@ func (ac *AbsensiController) GetAbsensiByID(c *fiber.Ctx) error {
 	return utils.SuccessResponse(c, toAbsensiResponse(absensi))
 }
 
+func (ac *AbsensiController) GetTodayAbsensi(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "User ID not found")
+	}
+
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfDay := startOfDay.AddDate(0, 0, 1)
+
+	var absensi models.Absensi
+	if err := ac.DB.Preload("User").
+		Where("user_id = ? AND absensi_masuk >= ? AND absensi_masuk < ?", userID, startOfDay, endOfDay).
+		Order("absensi_masuk DESC").
+		First(&absensi).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return utils.SuccessResponse(c, fiber.Map{
+				"absensi": nil,
+			})
+		}
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve today's absensi")
+	}
+
+	return utils.SuccessResponse(c, fiber.Map{
+		"absensi": toAbsensiResponse(absensi),
+	})
+}
+
 // ─────────────────────────────────────────────
 // POST create absensi
 // ─────────────────────────────────────────────
@@ -118,6 +178,11 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body")
 	}
 
+	if req.UserID == 0 {
+		if userID, ok := c.Locals("user_id").(uint); ok {
+			req.UserID = userID
+		}
+	}
 	if req.UserID == 0 {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "User ID is required")
 	}
@@ -157,11 +222,16 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 	absensiID := uuid.New().String()
 
 	absensi := models.Absensi{
-		UserID:        req.UserID,
-		AbsensiID:     absensiID,
-		Status:        req.Status,
-		AbsensiMasuk:  absensiMasuk,
-		AbsensiPulang: absensiPulang,
+		UserID:         req.UserID,
+		AbsensiID:      absensiID,
+		Status:         req.Status,
+		AbsensiMasuk:   absensiMasuk,
+		AbsensiPulang:  absensiPulang,
+		FotoMasuk:      req.FotoMasuk,
+		FotoPulang:     req.FotoPulang,
+		LatitudeMasuk:  firstNonZero(req.LatitudeMasuk, req.Latitude),
+		LongitudeMasuk: firstNonZero(req.LongitudeMasuk, req.Longitude),
+		AkurasiMasuk:   firstNonZero(req.AkurasiMasuk, req.Akurasi),
 	}
 
 	if err := ac.DB.Create(&absensi).Error; err != nil {
@@ -195,6 +265,11 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		}
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve absensi")
 	}
+	if role, _ := c.Locals("user_role").(string); role == string(models.RolePegawai) {
+		if userID, ok := c.Locals("user_id").(uint); ok && absensi.UserID != userID {
+			return utils.ErrorResponse(c, fiber.StatusForbidden, "Access denied. Cannot update another user's absensi")
+		}
+	}
 
 	var req UpdateAbsensiRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -220,6 +295,21 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		}
 		absensi.AbsensiPulang = pulang
 	}
+	if req.FotoMasuk != "" {
+		absensi.FotoMasuk = req.FotoMasuk
+	}
+	if req.FotoPulang != "" {
+		absensi.FotoPulang = req.FotoPulang
+	}
+	if req.LatitudePulang != 0 || req.Latitude != 0 {
+		absensi.LatitudePulang = firstNonZero(req.LatitudePulang, req.Latitude)
+	}
+	if req.LongitudePulang != 0 || req.Longitude != 0 {
+		absensi.LongitudePulang = firstNonZero(req.LongitudePulang, req.Longitude)
+	}
+	if req.AkurasiPulang != 0 || req.Akurasi != 0 {
+		absensi.AkurasiPulang = firstNonZero(req.AkurasiPulang, req.Akurasi)
+	}
 
 	if err := ac.DB.Save(&absensi).Error; err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update absensi")
@@ -229,6 +319,13 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		"message": "Absensi updated successfully",
 		"absensi": toAbsensiResponse(absensi),
 	})
+}
+
+func firstNonZero(primary float64, fallback float64) float64 {
+	if primary != 0 {
+		return primary
+	}
+	return fallback
 }
 
 // ─────────────────────────────────────────────

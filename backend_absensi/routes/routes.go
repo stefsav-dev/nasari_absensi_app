@@ -113,7 +113,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	pegawaiRoutes.Get("/profile", authController.GetProfile)
 
 	//absensi routes
-	pegawaiRoutes.Get("/absensi", absensiController.GetAbsensiByID)
+	pegawaiRoutes.Get("/absensi", absensiController.GetTodayAbsensi)
 	pegawaiRoutes.Post("/absensi", absensiController.CreateAbsensi)
+	pegawaiRoutes.Put("/absensi/:id", absensiController.UpdateAbsensi)
 
 }

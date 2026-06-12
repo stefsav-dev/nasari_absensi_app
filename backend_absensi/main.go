@@ -39,6 +39,7 @@ func main() {
 
 	// Initialize Fiber
 	app := fiber.New(fiber.Config{
+		BodyLimit: 15 * 1024 * 1024,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),

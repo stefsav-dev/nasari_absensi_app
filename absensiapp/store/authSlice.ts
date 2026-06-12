@@ -5,7 +5,8 @@ import axiosInstance from '../utils/axios';
 interface User {
   id: number;
   email: string;
-  name: string;
+  name?: string;
+  nama_lengkap?: string;
   role: string;
 }
 
@@ -52,7 +53,10 @@ export const loginUser = createAsyncThunk(
         return rejectWithValue('Akses ditolak. Aplikasi ini khusus untuk Pegawai.');
       }
 
-      return userData;
+      return {
+        ...userData,
+        name: userData.nama_lengkap || userData.name,
+      };
     } catch (error: any) {
       if (error.response && error.response.data) {
         return rejectWithValue(error.response.data.error || 'Login gagal. Periksa kembali kredensial Anda.');

@@ -1,5 +1,5 @@
 // app/(tabs)/profil.tsx
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,50 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '../../store';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../../store';
 import { logoutUser } from '../../store/authSlice';
+import axiosInstance from '../../utils/axios';
 
 export default function ProfilScreen() {
   const dispatch = useDispatch<AppDispatch>();
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  // State untuk data profil (fallback jika Redux kosong)
+  const [profileName, setProfileName] = useState(user?.nama_lengkap || user?.name || '');
+  const [profileEmail, setProfileEmail] = useState(user?.email || '');
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const response = await axiosInstance.get('/protected/profile');
+      if (response.data && response.data.success && response.data.data) {
+        setProfileName(response.data.data.nama_lengkap || response.data.data.name || '');
+        setProfileEmail(response.data.data.email || '');
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Jika data user sudah ada di Redux, gunakan itu
+    const currentName = user?.nama_lengkap || user?.name;
+    if (currentName) {
+      setProfileName(currentName);
+      setProfileEmail(user?.email || '');
+    } else {
+      // Fallback: fetch dari API
+      fetchProfile();
+    }
+  }, [fetchProfile, user]);
+
+  // Ambil inisial dari nama untuk avatar
+  const getInitial = () => {
+    if (profileName) {
+      return profileName.charAt(0).toUpperCase();
+    }
+    return '?';
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -54,15 +92,15 @@ export default function ProfilScreen() {
       <View style={styles.profileCard}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>A</Text>
+            <Text style={styles.avatarText}>{getInitial()}</Text>
           </View>
           <TouchableOpacity style={styles.editAvatarButton}>
             <Ionicons name="camera-outline" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
-        <Text style={styles.userName}>Ahmad Fauzi</Text>
-        <Text style={styles.userEmail}>ahmad.fauzi@email.com</Text>
-        <Text style={styles.userRole}>Karyawan</Text>
+        <Text style={styles.userName}>{profileName || 'Memuat...'}</Text>
+        <Text style={styles.userEmail}>{profileEmail || '-'}</Text>
+        <Text style={styles.userRole}>{user?.role === 'pegawai' ? 'Pegawai' : (user?.role || 'Karyawan')}</Text>
       </View>
 
       <View style={styles.menuSection}>

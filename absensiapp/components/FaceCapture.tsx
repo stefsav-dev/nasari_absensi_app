@@ -20,30 +20,72 @@ const { width } = Dimensions.get('window');
 interface FaceCaptureProps {
   visible: boolean;
   onClose: () => void;
-  onCaptureComplete: (photoUri: string) => void;
+  onCaptureComplete: (photoUri: string, photoBase64?: string) => boolean | void | Promise<boolean | void>;
   actionType: 'in' | 'out';
 }
 
 export default function FaceCapture({ visible, onClose, onCaptureComplete, actionType }: FaceCaptureProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
+  const [requestingPermission, setRequestingPermission] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedImageBase64, setCapturedImageBase64] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  const hasRequestedPermissionRef = useRef(false);
 
   useEffect(() => {
-    if (visible && !permission) {
-      requestPermission();
+    if (!visible) {
+      hasRequestedPermissionRef.current = false;
+      setRequestingPermission(false);
+      return;
     }
-  }, [visible]);
+
+    if (permission?.granted || hasRequestedPermissionRef.current) {
+      return;
+    }
+
+    const requestCameraAccess = async () => {
+      hasRequestedPermissionRef.current = true;
+      setRequestingPermission(true);
+      const result = await requestPermission();
+      setRequestingPermission(false);
+
+      if (!result.granted) {
+        // Tutup modal terlebih dahulu, lalu tampilkan alert native
+        // seperti cara Google Maps meminta izin lokasi
+        onClose();
+        setTimeout(() => {
+          Alert.alert(
+            'Izinkan Akses Kamera',
+            'Aplikasi Absensi memerlukan akses kamera untuk mengambil foto selfie sebagai verifikasi kehadiran.\n\nSilakan izinkan akses kamera melalui Pengaturan.',
+            [
+              { text: 'Batal', style: 'cancel' },
+              {
+                text: 'Buka Pengaturan',
+                onPress: () => {
+                  if (Platform.OS === 'ios') {
+                    Linking.openURL('app-settings:');
+                  } else {
+                    Linking.openSettings();
+                  }
+                }
+              },
+            ]
+          );
+        }, 300);
+      }
+    };
+
+    requestCameraAccess();
+  }, [visible, permission?.granted, requestPermission, onClose]);
 
   // Cek apakah kamera tersedia
   const checkCameraAvailability = async () => {
     try {
       const { status } = await CameraView.getCameraPermissionsAsync();
       if (status !== 'granted') {
-        showCameraPermissionAlert();
         return false;
       }
       return true;
@@ -51,28 +93,6 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
       console.error('Camera check error:', error);
       return false;
     }
-  };
-
-  // Tampilkan alert untuk meminta izin kamera
-  const showCameraPermissionAlert = () => {
-    Alert.alert(
-      '⚠️ Akses Kamera Diperlukan',
-      'Aplikasi memerlukan akses kamera untuk mengambil foto selfie sebagai verifikasi absensi.\n\nPastikan kamera dalam kondisi baik dan tidak digunakan oleh aplikasi lain.',
-      [
-        { text: 'Batal', style: 'cancel', onPress: onClose },
-        { 
-          text: 'Buka Pengaturan', 
-          onPress: () => {
-            if (Platform.OS === 'ios') {
-              Linking.openURL('app-settings:');
-            } else {
-              Linking.openSettings();
-            }
-          }
-        },
-        { text: 'Coba Lagi', onPress: () => requestPermission() }
-      ]
-    );
   };
 
   // Tampilkan peringatan kamera tidak siap
@@ -87,14 +107,7 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
     );
   };
 
-  // Tampilkan peringatan pencahayaan kurang
-  const showLowLightWarning = () => {
-    Alert.alert(
-      '💡 Pencahayaan Kurang',
-      'Kondisi pencahayaan kurang baik. Pastikan:\n\n✓ Wajah Anda terkena cahaya yang cukup\n✓ Hindari cahaya dari belakang (backlight)\n✓ Gunakan lampu jika diperlukan\n\nFoto dengan pencahayaan kurang mungkin tidak valid.',
-      [{ text: 'Mengerti', style: 'default' }]
-    );
-  };
+
 
   const takePicture = async () => {
     if (cameraRef.current && cameraReady && !capturing) {
@@ -103,13 +116,12 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
         // Cek ketersediaan kamera sebelum mengambil foto
         const isCameraAvailable = await checkCameraAvailability();
         if (!isCameraAvailable) {
-          showCameraPermissionAlert();
           setCapturing(false);
           return;
         }
 
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
+          quality: 0.35,
           base64: true,
           exif: true, // Dapatkan info EXIF termasuk kondisi pencahayaan
         });
@@ -125,12 +137,14 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
                 { text: 'Foto Ulang', onPress: () => setCapturing(false) },
                 { text: 'Tetap Gunakan', onPress: () => {
                   setCapturedImage(photo.uri);
+                  setCapturedImageBase64(photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : null);
                   setPreviewVisible(true);
                 }}
               ]
             );
           } else {
             setCapturedImage(photo.uri);
+            setCapturedImageBase64(photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : null);
             setPreviewVisible(true);
           }
         }
@@ -154,14 +168,19 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
 
   const retakePhoto = () => {
     setCapturedImage(null);
+    setCapturedImageBase64(null);
     setPreviewVisible(false);
   };
 
   const confirmPhoto = async () => {
     if (capturedImage) {
       try {
-        onCaptureComplete(capturedImage);
+        const isSaved = await onCaptureComplete(capturedImage, capturedImageBase64 || undefined);
+        if (isSaved === false) {
+          return;
+        }
         setCapturedImage(null);
+        setCapturedImageBase64(null);
         setPreviewVisible(false);
         onClose();
       } catch (error) {
@@ -171,49 +190,13 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
     }
   };
 
-  if (!permission) {
+  if (!permission || requestingPermission || !permission.granted) {
     return (
       <Modal visible={visible} animationType="slide" transparent={false}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
           <Text style={styles.loadingText}>Meminta izin kamera...</Text>
-          <Text style={styles.loadingSubText}>Mohon tunggu sebentar</Text>
-        </View>
-      </Modal>
-    );
-  }
-
-  if (!permission.granted) {
-    return (
-      <Modal visible={visible} animationType="slide" transparent={false}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="camera-off" size={80} color="#F44336" />
-          <Text style={styles.errorText}>Akses Kamera Ditutup</Text>
-          <Text style={styles.errorSubText}>
-            Aplikasi memerlukan akses kamera untuk mengambil foto selfie sebagai verifikasi absensi.
-          </Text>
-          <View style={styles.errorInstructions}>
-            <Text style={styles.instructionTitle}>📱 Cara Mengaktifkan Kamera:</Text>
-            <Text style={styles.instructionItem}>1. Buka Pengaturan HP Anda</Text>
-            <Text style={styles.instructionItem}>2. Cari "Aplikasi" atau "Apps"</Text>
-            <Text style={styles.instructionItem}>3. Cari "absensiapp"</Text>
-            <Text style={styles.instructionItem}>4. Pilih "Izin" atau "Permissions"</Text>
-            <Text style={styles.instructionItem}>5. Aktifkan izin "Kamera"</Text>
-          </View>
-          <View style={styles.errorButtonGroup}>
-            <TouchableOpacity style={styles.permissionCloseButton} onPress={onClose}>
-              <Text style={styles.permissionCloseButtonText}>Tutup</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.permissionSettingsButton} onPress={() => {
-              if (Platform.OS === 'ios') {
-                Linking.openURL('app-settings:');
-              } else {
-                Linking.openSettings();
-              }
-            }}>
-              <Text style={styles.permissionSettingsButtonText}>Buka Pengaturan</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.loadingSubText}>Izinkan akses kamera untuk mengambil selfie</Text>
         </View>
       </Modal>
     );
@@ -564,74 +547,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 20,
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#F44336',
-  },
-  errorSubText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  errorInstructions: {
-    backgroundColor: '#f5f5f5',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    width: '100%',
-  },
-  instructionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  instructionItem: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  errorButtonGroup: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  permissionCloseButton: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  permissionCloseButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  permissionSettingsButton: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: '#4A90E2',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  permissionSettingsButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
+
 });

@@ -1,5 +1,5 @@
 // app/(tabs)/absensi.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import LocationPicker from '../../components/LocationPicker';
 import FaceCapture from '../../components/FaceCapture';
+import axiosInstance from '../../utils/axios';
 
 const { width } = Dimensions.get('window');
 const isSmallDevice = width < 375;
@@ -24,11 +25,62 @@ export default function AbsensiScreen() {
     checkOutLocation: null as any,
     checkInPhoto: null as string | null,
     checkOutPhoto: null as string | null,
+    absensiId: null as number | null,
   });
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showFaceCapture, setShowFaceCapture] = useState(false);
   const [currentAction, setCurrentAction] = useState<'in' | 'out' | null>(null);
   const [tempLocation, setTempLocation] = useState<any>(null);
+  const [submittingAbsensi, setSubmittingAbsensi] = useState(false);
+
+  useEffect(() => {
+    fetchTodayAbsensi();
+  }, []);
+
+  const formatTimeFromApi = (dateValue?: string) => {
+    if (!dateValue || dateValue.startsWith('0001-')) {
+      return null;
+    }
+
+    return new Date(dateValue).toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  };
+
+  const fetchTodayAbsensi = async () => {
+    try {
+      const response = await axiosInstance.get('/protected/pegawai/absensi');
+      const todayAbsensi = response.data?.data?.absensi;
+      if (!todayAbsensi) {
+        return;
+      }
+
+      const checkInTime = formatTimeFromApi(todayAbsensi.absensi_masuk);
+      const checkOutTime = formatTimeFromApi(todayAbsensi.absensi_pulang);
+
+      setAbsensiStatus({
+        checkIn: checkInTime,
+        checkOut: checkOutTime,
+        checkInLocation: todayAbsensi.latitude_masuk ? {
+          latitude: todayAbsensi.latitude_masuk,
+          longitude: todayAbsensi.longitude_masuk,
+          accuracy: todayAbsensi.akurasi_masuk,
+        } : null,
+        checkOutLocation: todayAbsensi.latitude_pulang ? {
+          latitude: todayAbsensi.latitude_pulang,
+          longitude: todayAbsensi.longitude_pulang,
+          accuracy: todayAbsensi.akurasi_pulang,
+        } : null,
+        checkInPhoto: todayAbsensi.has_foto_masuk || todayAbsensi.foto_masuk ? 'saved' : null,
+        checkOutPhoto: todayAbsensi.has_foto_pulang || todayAbsensi.foto_pulang ? 'saved' : null,
+        absensiId: todayAbsensi.id,
+      });
+    } catch (error) {
+      console.error('Gagal mengambil absensi hari ini:', error);
+    }
+  };
 
   const handleAbsensi = (type: 'in' | 'out') => {
     if (type === 'in' && absensiStatus.checkIn) {
@@ -63,7 +115,17 @@ export default function AbsensiScreen() {
     setShowFaceCapture(true);
   };
 
-  const handleFaceCaptureComplete = async (photoUri: string) => {
+  const handleFaceCaptureComplete = async (photoUri: string, photoBase64?: string) => {
+    if (!tempLocation || !currentAction) {
+      Alert.alert('Error', 'Data lokasi atau aksi absensi tidak lengkap. Silakan coba lagi.');
+      return false;
+    }
+
+    if (!photoBase64) {
+      Alert.alert('Error', 'Foto gagal diproses. Silakan ambil ulang foto.');
+      return false;
+    }
+
     const now = new Date();
     const timeString = now.toLocaleTimeString('id-ID', {
       hour: '2-digit',
@@ -71,32 +133,76 @@ export default function AbsensiScreen() {
       second: '2-digit',
     });
 
+    setSubmittingAbsensi(true);
     if (currentAction === 'in') {
-      setAbsensiStatus({
-        ...absensiStatus,
-        checkIn: timeString,
-        checkInLocation: tempLocation,
-        checkInPhoto: photoUri,
-      });
-      Alert.alert(
-        'Sukses',
-        `Check In berhasil!\n\nWaktu: ${timeString}\nLokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\nAkurasi: ${Math.round(tempLocation.accuracy)} meter\nFoto selfie telah tersimpan`
-      );
+      try {
+        const response = await axiosInstance.post('/protected/pegawai/absensi', {
+          status: 'Hadir',
+          absensi_masuk: now.toISOString(),
+          foto_masuk: photoBase64,
+          latitude: tempLocation.latitude,
+          longitude: tempLocation.longitude,
+          akurasi: tempLocation.accuracy,
+        });
+        const savedAbsensi = response.data?.data;
+
+        setAbsensiStatus({
+          ...absensiStatus,
+          checkIn: timeString,
+          checkInLocation: tempLocation,
+          checkInPhoto: photoUri,
+          absensiId: savedAbsensi?.id || null,
+        });
+        Alert.alert(
+          'Sukses',
+          `Check In berhasil dan tersimpan di database!\n\nWaktu: ${timeString}\nLokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\nAkurasi: ${Math.round(tempLocation.accuracy)} meter\nFoto selfie telah tersimpan`
+        );
+      } catch (error: any) {
+        console.error('Gagal menyimpan check in:', error?.response?.data || error);
+        Alert.alert('Error', error?.response?.data?.error || 'Gagal menyimpan check in ke database.');
+        return false;
+      } finally {
+        setSubmittingAbsensi(false);
+      }
     } else if (currentAction === 'out') {
-      setAbsensiStatus({
-        ...absensiStatus,
-        checkOut: timeString,
-        checkOutLocation: tempLocation,
-        checkOutPhoto: photoUri,
-      });
-      Alert.alert(
-        'Sukses',
-        `Check Out berhasil!\n\nWaktu: ${timeString}\nLokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\nAkurasi: ${Math.round(tempLocation.accuracy)} meter\nFoto selfie telah tersimpan`
-      );
+      if (!absensiStatus.absensiId) {
+        setSubmittingAbsensi(false);
+        Alert.alert('Error', 'Data check in belum tersedia. Silakan check in ulang atau buka kembali aplikasi.');
+        return false;
+      }
+
+      try {
+        await axiosInstance.put(`/protected/pegawai/absensi/${absensiStatus.absensiId}`, {
+          status: 'Hadir',
+          absensi_pulang: now.toISOString(),
+          foto_pulang: photoBase64,
+          latitude: tempLocation.latitude,
+          longitude: tempLocation.longitude,
+          akurasi: tempLocation.accuracy,
+        });
+
+        setAbsensiStatus({
+          ...absensiStatus,
+          checkOut: timeString,
+          checkOutLocation: tempLocation,
+          checkOutPhoto: photoUri,
+        });
+        Alert.alert(
+          'Sukses',
+          `Check Out berhasil dan tersimpan di database!\n\nWaktu: ${timeString}\nLokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\nAkurasi: ${Math.round(tempLocation.accuracy)} meter\nFoto selfie telah tersimpan`
+        );
+      } catch (error: any) {
+        console.error('Gagal menyimpan check out:', error?.response?.data || error);
+        Alert.alert('Error', error?.response?.data?.error || 'Gagal menyimpan check out ke database.');
+        return false;
+      } finally {
+        setSubmittingAbsensi(false);
+      }
     }
     
     setTempLocation(null);
     setCurrentAction(null);
+    return true;
   };
 
   const handleCloseFaceCapture = () => {
@@ -145,14 +251,14 @@ export default function AbsensiScreen() {
               style={[
                 styles.absensiButton,
                 styles.checkInButton,
-                absensiStatus.checkIn && styles.disabledButton,
+                (absensiStatus.checkIn || submittingAbsensi) && styles.disabledButton,
               ]}
               onPress={() => handleAbsensi('in')}
-              disabled={!!absensiStatus.checkIn}
+              disabled={!!absensiStatus.checkIn || submittingAbsensi}
             >
               <Ionicons name="log-in-outline" size={24} color="#fff" />
               <View style={styles.buttonContent}>
-                <Text style={styles.buttonText}>Check In</Text>
+                <Text style={styles.buttonText}>{submittingAbsensi ? 'Menyimpan...' : 'Check In'}</Text>
                 {absensiStatus.checkIn && (
                   <>
                     <Text style={styles.timeText}>{absensiStatus.checkIn}</Text>
@@ -166,14 +272,14 @@ export default function AbsensiScreen() {
               style={[
                 styles.absensiButton,
                 styles.checkOutButton,
-                (!absensiStatus.checkIn || absensiStatus.checkOut) && styles.disabledButton,
+                (!absensiStatus.checkIn || absensiStatus.checkOut || submittingAbsensi) && styles.disabledButton,
               ]}
               onPress={() => handleAbsensi('out')}
-              disabled={!absensiStatus.checkIn || !!absensiStatus.checkOut}
+              disabled={!absensiStatus.checkIn || !!absensiStatus.checkOut || submittingAbsensi}
             >
               <Ionicons name="log-out-outline" size={24} color="#fff" />
               <View style={styles.buttonContent}>
-                <Text style={styles.buttonText}>Check Out</Text>
+                <Text style={styles.buttonText}>{submittingAbsensi ? 'Menyimpan...' : 'Check Out'}</Text>
                 {absensiStatus.checkOut && (
                   <>
                     <Text style={styles.timeText}>{absensiStatus.checkOut}</Text>

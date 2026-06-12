@@ -10,7 +10,7 @@ import { Platform } from 'react-native';
 // 2. If your phone and PC are on the SAME Wi-Fi network:
 // const API_URL = 'http://192.168.0.123:4000/api'; // Replace with your computer's local IP
 // const API_URL = 'http://192.168.0.123:4000/api';
-const API_URL = 'http://192.168.1.50:4000/api'
+const API_URL = 'https://api-nasariabsensi.collabcoop.id/api'
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
