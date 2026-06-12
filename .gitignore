@@ -13,4 +13,5 @@ node_modules/
 .next/
 dist/
 build/absensiapp/
-absensiapp/
+absensiapp/node_modules/
+absensiapp/.expo/

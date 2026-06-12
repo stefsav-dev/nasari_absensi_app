@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "absensiapp",
+    "slug": "absensiapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0072d2"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stefanus.absensiapp",
+      "splash": {
+        "image": "./assets/images/icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#0072d2"
+      }
+    },
+    "android": {
+      "package": "com.stefanus.absensiapp",
+      "adaptiveIcon": {
+        "backgroundColor": "#4A90E2"
+      },
+      "splash": {
+        "image": "./assets/images/icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#0072d2"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-notifications"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "57ffe242-8300-4c24-bcc9-6a5a003f38a2"
+      }
+    }
+  }
+}
