@@ -62,7 +62,7 @@ services:
       context: ./frontend_absensi
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:4000/api
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
     container_name: nasari_frontend
     restart: unless-stopped
     environment:
