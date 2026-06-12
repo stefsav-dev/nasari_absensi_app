@@ -29,6 +29,7 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
   const [cameraReady, setCameraReady] = useState(false);
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedImageBase64, setCapturedImageBase64] = useState<string | null>(null);
@@ -137,14 +138,14 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
                 { text: 'Foto Ulang', onPress: () => setCapturing(false) },
                 { text: 'Tetap Gunakan', onPress: () => {
                   setCapturedImage(photo.uri);
-                  setCapturedImageBase64(photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : null);
+                  setCapturedImageBase64(photo.base64 || null);
                   setPreviewVisible(true);
                 }}
               ]
             );
           } else {
             setCapturedImage(photo.uri);
-            setCapturedImageBase64(photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : null);
+            setCapturedImageBase64(photo.base64 || null);
             setPreviewVisible(true);
           }
         }
@@ -173,18 +174,22 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
   };
 
   const confirmPhoto = async () => {
-    if (capturedImage) {
+    if (capturedImage && !submitting) {
+      setSubmitting(true);
       try {
         const isSaved = await onCaptureComplete(capturedImage, capturedImageBase64 || undefined);
         if (isSaved === false) {
+          setSubmitting(false);
           return;
         }
         setCapturedImage(null);
         setCapturedImageBase64(null);
         setPreviewVisible(false);
+        setSubmitting(false);
         onClose();
       } catch (error) {
         console.error('Error saving photo:', error);
+        setSubmitting(false);
         Alert.alert('Error', 'Gagal menyimpan foto. Silakan coba lagi.');
       }
     }
@@ -293,13 +298,17 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
             </View>
 
             <View style={styles.previewButtonContainer}>
-              <TouchableOpacity style={styles.retakeButton} onPress={retakePhoto}>
+              <TouchableOpacity style={[styles.retakeButton, submitting && { opacity: 0.5 }]} onPress={retakePhoto} disabled={submitting}>
                 <Ionicons name="refresh" size={24} color="#4A90E2" />
                 <Text style={styles.retakeButtonText}>Foto Ulang</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmButton} onPress={confirmPhoto}>
-                <Ionicons name="checkmark" size={24} color="#fff" />
-                <Text style={styles.confirmButtonText}>Konfirmasi</Text>
+              <TouchableOpacity style={[styles.confirmButton, submitting && { opacity: 0.7 }]} onPress={confirmPhoto} disabled={submitting}>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="checkmark" size={24} color="#fff" />
+                )}
+                <Text style={styles.confirmButtonText}>{submitting ? 'Menyimpan...' : 'Konfirmasi'}</Text>
               </TouchableOpacity>
             </View>
           </>

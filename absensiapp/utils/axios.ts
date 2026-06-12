@@ -14,7 +14,7 @@ const API_URL = 'https://api-nasariabsensi.collabcoop.id/api'
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 10000, // 10 seconds timeout
+  timeout: 60000, // 60 seconds timeout (accommodate large photo uploads)
   headers: {
     'Content-Type': 'application/json',
     'Bypass-Tunnel-Reminder': 'true', // Needed to bypass localtunnel warning page
