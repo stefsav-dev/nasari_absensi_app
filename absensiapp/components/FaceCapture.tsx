@@ -13,6 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -121,15 +122,42 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
           return;
         }
 
+        console.log('[FaceCapture] Taking picture...');
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.35,
           base64: true,
-          exif: true, // Dapatkan info EXIF termasuk kondisi pencahayaan
+          exif: false,
         });
         
+        console.log('[FaceCapture] Photo result:', {
+          hasUri: !!photo?.uri,
+          hasBase64: !!photo?.base64,
+          base64Length: photo?.base64?.length || 0,
+        });
+
         if (photo && photo.uri) {
+          // Get base64 data - fallback to reading file if takePictureAsync didn't return base64
+          let base64Data = photo.base64 || null;
+          
+          if (!base64Data) {
+            console.log('[FaceCapture] base64 not returned by camera, reading from file...');
+            try {
+              base64Data = await FileSystem.readAsStringAsync(photo.uri, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+              console.log('[FaceCapture] File read success, base64 length:', base64Data?.length || 0);
+            } catch (readError) {
+              console.error('[FaceCapture] Failed to read photo file as base64:', readError);
+            }
+          }
+
+          // Strip data URI prefix if present
+          if (base64Data && base64Data.startsWith('data:')) {
+            base64Data = base64Data.split(',')[1] || base64Data;
+          }
+          
           // Cek kualitas foto (sederhana)
-          if (photo.base64 && photo.base64.length < 10000) {
+          if (base64Data && base64Data.length < 10000) {
             // Jika ukuran foto terlalu kecil, mungkin terlalu gelap
             Alert.alert(
               '⚠️ Peringatan Kualitas Foto',
@@ -138,19 +166,32 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
                 { text: 'Foto Ulang', onPress: () => setCapturing(false) },
                 { text: 'Tetap Gunakan', onPress: () => {
                   setCapturedImage(photo.uri);
-                  setCapturedImageBase64(photo.base64 || null);
+                  setCapturedImageBase64(base64Data);
                   setPreviewVisible(true);
+                  setCapturing(false);
                 }}
               ]
             );
+            return; // Don't go to finally yet, alert handles state
+          } else if (!base64Data) {
+            // base64 benar-benar gagal didapat
+            Alert.alert(
+              'Error',
+              'Gagal memproses foto. Silakan coba ambil foto lagi.',
+              [{ text: 'OK', onPress: () => setCapturing(false) }]
+            );
+            return;
           } else {
             setCapturedImage(photo.uri);
-            setCapturedImageBase64(photo.base64 || null);
+            setCapturedImageBase64(base64Data);
             setPreviewVisible(true);
           }
+        } else {
+          console.error('[FaceCapture] takePictureAsync returned no photo or no URI');
+          Alert.alert('Error', 'Gagal mengambil foto. Silakan coba lagi.');
         }
       } catch (error) {
-        console.error('Error taking picture:', error);
+        console.error('[FaceCapture] Error taking picture:', error);
         Alert.alert(
           'Error',
           'Gagal mengambil foto.\n\nKemungkinan penyebab:\n• Kamera sedang digunakan aplikasi lain\n• Izin kamera dicabut\n• Kamera bermasalah',
@@ -175,9 +216,36 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
 
   const confirmPhoto = async () => {
     if (capturedImage && !submitting) {
+      console.log('[FaceCapture] confirmPhoto called, base64 length:', capturedImageBase64?.length || 0);
+      
+      // If we somehow lost the base64 data, try to read it from the file URI
+      let base64ToSend = capturedImageBase64;
+      if (!base64ToSend && capturedImage) {
+        console.log('[FaceCapture] base64 is null in confirmPhoto, reading from file...');
+        try {
+          base64ToSend = await FileSystem.readAsStringAsync(capturedImage, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          // Strip data URI prefix if present
+          if (base64ToSend && base64ToSend.startsWith('data:')) {
+            base64ToSend = base64ToSend.split(',')[1] || base64ToSend;
+          }
+          console.log('[FaceCapture] File read success in confirmPhoto, length:', base64ToSend?.length || 0);
+        } catch (readError) {
+          console.error('[FaceCapture] Failed to read photo in confirmPhoto:', readError);
+        }
+      }
+      
+      if (!base64ToSend) {
+        Alert.alert('Error', 'Data foto tidak tersedia. Silakan ambil foto ulang.');
+        return;
+      }
+      
       setSubmitting(true);
       try {
-        const isSaved = await onCaptureComplete(capturedImage, capturedImageBase64 || undefined);
+        console.log('[FaceCapture] Calling onCaptureComplete...');
+        const isSaved = await onCaptureComplete(capturedImage, base64ToSend);
+        console.log('[FaceCapture] onCaptureComplete result:', isSaved);
         if (isSaved === false) {
           setSubmitting(false);
           return;
@@ -188,7 +256,7 @@ export default function FaceCapture({ visible, onClose, onCaptureComplete, actio
         setSubmitting(false);
         onClose();
       } catch (error) {
-        console.error('Error saving photo:', error);
+        console.error('[FaceCapture] Error saving photo:', error);
         setSubmitting(false);
         Alert.alert('Error', 'Gagal menyimpan foto. Silakan coba lagi.');
       }

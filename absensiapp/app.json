@@ -37,7 +37,19 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Aplikasi memerlukan akses kamera untuk mengambil foto selfie sebagai verifikasi kehadiran."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Aplikasi memerlukan akses lokasi untuk verifikasi kehadiran."
+        }
+      ]
     ],
     "extra": {
       "router": {
@@ -46,6 +58,12 @@
       "eas": {
         "projectId": "57ffe242-8300-4c24-bcc9-6a5a003f38a2"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/57ffe242-8300-4c24-bcc9-6a5a003f38a2"
     }
   }
 }

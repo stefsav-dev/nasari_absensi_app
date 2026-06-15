@@ -1,5 +1,5 @@
 // app/(tabs)/absensi.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,16 @@ export default function AbsensiScreen() {
   const [currentAction, setCurrentAction] = useState<'in' | 'out' | null>(null);
   const [tempLocation, setTempLocation] = useState<any>(null);
   const [submittingAbsensi, setSubmittingAbsensi] = useState(false);
+
+  // Refs to avoid stale closures in callbacks passed to child components
+  const tempLocationRef = useRef<any>(null);
+  const currentActionRef = useRef<'in' | 'out' | null>(null);
+  const absensiStatusRef = useRef(absensiStatus);
+
+  // Keep refs in sync with state
+  useEffect(() => { tempLocationRef.current = tempLocation; }, [tempLocation]);
+  useEffect(() => { currentActionRef.current = currentAction; }, [currentAction]);
+  useEffect(() => { absensiStatusRef.current = absensiStatus; }, [absensiStatus]);
 
   useEffect(() => {
     fetchTodayAbsensi();
@@ -98,6 +108,7 @@ export default function AbsensiScreen() {
       return;
     }
     
+    currentActionRef.current = type;
     setCurrentAction(type);
     setShowLocationPicker(true);
   };
@@ -107,7 +118,9 @@ export default function AbsensiScreen() {
     longitude: number;
     accuracy: number;
   }) => {
-    // Simpan lokasi sementara
+    // Set ref immediately (sync) to avoid stale closure issues
+    tempLocationRef.current = location;
+    // Also set state for re-render
     setTempLocation(location);
     // Tutup location picker
     setShowLocationPicker(false);
@@ -115,13 +128,29 @@ export default function AbsensiScreen() {
     setShowFaceCapture(true);
   };
 
-  const handleFaceCaptureComplete = async (photoUri: string, photoBase64?: string) => {
-    if (!tempLocation || !currentAction) {
+  const handleFaceCaptureComplete = useCallback(async (photoUri: string, photoBase64?: string) => {
+    // Use refs to always get the latest values (avoid stale closures)
+    const loc = tempLocationRef.current;
+    const action = currentActionRef.current;
+    const status = absensiStatusRef.current;
+
+    console.log('[Absensi] handleFaceCaptureComplete called:', {
+      hasPhotoUri: !!photoUri,
+      hasPhotoBase64: !!photoBase64,
+      base64Length: photoBase64?.length || 0,
+      hasLocation: !!loc,
+      action,
+      absensiId: status?.absensiId,
+    });
+
+    if (!loc || !action) {
+      console.error('[Absensi] Missing location or action:', { loc, action });
       Alert.alert('Error', 'Data lokasi atau aksi absensi tidak lengkap. Silakan coba lagi.');
       return false;
     }
 
     if (!photoBase64) {
+      console.error('[Absensi] Missing photoBase64');
       Alert.alert('Error', 'Foto gagal diproses. Silakan ambil ulang foto.');
       return false;
     }
@@ -134,66 +163,89 @@ export default function AbsensiScreen() {
     });
 
     setSubmittingAbsensi(true);
-    if (currentAction === 'in') {
+    if (action === 'in') {
       try {
+        console.log('[Absensi] Sending check-in request...', {
+          base64Length: photoBase64.length,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        });
         const response = await axiosInstance.post('/protected/pegawai/absensi', {
           status: 'Hadir',
           absensi_masuk: now.toISOString(),
           foto_masuk: photoBase64,
-          latitude: tempLocation.latitude,
-          longitude: tempLocation.longitude,
-          akurasi: tempLocation.accuracy,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          akurasi: loc.accuracy,
         });
+        console.log('[Absensi] Check-in response:', response.status, response.data?.message);
         const savedAbsensi = response.data?.data;
 
-        setAbsensiStatus({
-          ...absensiStatus,
+        setAbsensiStatus(prev => ({
+          ...prev,
           checkIn: timeString,
-          checkInLocation: tempLocation,
+          checkInLocation: loc,
           checkInPhoto: photoUri,
           absensiId: savedAbsensi?.id || null,
-        });
+        }));
         Alert.alert(
           'Sukses',
-          `Check In berhasil dan tersimpan di database!\n\nWaktu: ${timeString}\nLokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\nAkurasi: ${Math.round(tempLocation.accuracy)} meter\nFoto selfie telah tersimpan`
+          `Check In berhasil dan tersimpan di database!\n\nWaktu: ${timeString}\nLokasi: ${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}\nAkurasi: ${Math.round(loc.accuracy)} meter\nFoto selfie telah tersimpan`
         );
       } catch (error: any) {
-        console.error('Gagal menyimpan check in:', error?.response?.data || error);
-        Alert.alert('Error', error?.response?.data?.error || 'Gagal menyimpan check in ke database.');
+        console.error('[Absensi] Check-in failed:', {
+          status: error?.response?.status,
+          data: error?.response?.data,
+          message: error?.message,
+          code: error?.code,
+        });
+        const errMsg = error?.response?.data?.error || error?.message || 'Gagal menyimpan check in ke database.';
+        Alert.alert('Error Check In', errMsg);
         return false;
       } finally {
         setSubmittingAbsensi(false);
       }
-    } else if (currentAction === 'out') {
-      if (!absensiStatus.absensiId) {
+    } else if (action === 'out') {
+      if (!status.absensiId) {
         setSubmittingAbsensi(false);
         Alert.alert('Error', 'Data check in belum tersedia. Silakan check in ulang atau buka kembali aplikasi.');
         return false;
       }
 
       try {
-        await axiosInstance.put(`/protected/pegawai/absensi/${absensiStatus.absensiId}`, {
+        console.log('[Absensi] Sending check-out request...', {
+          absensiId: status.absensiId,
+          base64Length: photoBase64.length,
+        });
+        await axiosInstance.put(`/protected/pegawai/absensi/${status.absensiId}`, {
           status: 'Hadir',
           absensi_pulang: now.toISOString(),
           foto_pulang: photoBase64,
-          latitude: tempLocation.latitude,
-          longitude: tempLocation.longitude,
-          akurasi: tempLocation.accuracy,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          akurasi: loc.accuracy,
         });
+        console.log('[Absensi] Check-out success');
 
-        setAbsensiStatus({
-          ...absensiStatus,
+        setAbsensiStatus(prev => ({
+          ...prev,
           checkOut: timeString,
-          checkOutLocation: tempLocation,
+          checkOutLocation: loc,
           checkOutPhoto: photoUri,
-        });
+        }));
         Alert.alert(
           'Sukses',
-          `Check Out berhasil dan tersimpan di database!\n\nWaktu: ${timeString}\nLokasi: ${tempLocation.latitude.toFixed(6)}, ${tempLocation.longitude.toFixed(6)}\nAkurasi: ${Math.round(tempLocation.accuracy)} meter\nFoto selfie telah tersimpan`
+          `Check Out berhasil dan tersimpan di database!\n\nWaktu: ${timeString}\nLokasi: ${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}\nAkurasi: ${Math.round(loc.accuracy)} meter\nFoto selfie telah tersimpan`
         );
       } catch (error: any) {
-        console.error('Gagal menyimpan check out:', error?.response?.data || error);
-        Alert.alert('Error', error?.response?.data?.error || 'Gagal menyimpan check out ke database.');
+        console.error('[Absensi] Check-out failed:', {
+          status: error?.response?.status,
+          data: error?.response?.data,
+          message: error?.message,
+          code: error?.code,
+        });
+        const errMsg = error?.response?.data?.error || error?.message || 'Gagal menyimpan check out ke database.';
+        Alert.alert('Error Check Out', errMsg);
         return false;
       } finally {
         setSubmittingAbsensi(false);
@@ -203,7 +255,7 @@ export default function AbsensiScreen() {
     setTempLocation(null);
     setCurrentAction(null);
     return true;
-  };
+  }, []);
 
   const handleCloseFaceCapture = () => {
     setShowFaceCapture(false);
