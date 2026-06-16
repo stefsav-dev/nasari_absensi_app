@@ -99,22 +99,20 @@ export default function FaceVerificationScreen() {
             { text: 'OK', onPress: () => router.replace('/(tabs)') }
           ]);
         } catch (apiError: any) {
-          // If API fails (timeout/500/offline fallback), save it locally
-          console.error('API Error, saving offline:', apiError);
-          await savePendingAbsensi(payload);
+          // If API fails
+          console.error('API Error:', apiError);
+          // await savePendingAbsensi(payload); // Offline sync disabled
           Alert.alert(
-            'Disimpan Lokal', 
-            `Koneksi server bermasalah. Absensi ${type} disimpan di HP Anda dan akan dikirim otomatis nanti.`, 
-            [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+            'Gagal', 
+            `Koneksi server bermasalah. Silakan coba lagi nanti.`
           );
         }
       } else {
         // Device is completely offline
-        await savePendingAbsensi(payload);
+        // await savePendingAbsensi(payload); // Offline sync disabled
         Alert.alert(
           'Mode Offline', 
-          `Sinyal internet tidak tersedia. Absensi ${type} telah disimpan secara lokal dan akan diunggah otomatis saat Anda kembali online.`, 
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+          `Sinyal internet tidak tersedia. Pastikan Anda terhubung ke internet dan coba lagi.`
         );
       }
       

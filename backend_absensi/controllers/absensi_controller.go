@@ -31,8 +31,8 @@ type AbsensiResponse struct {
 	UserID          uint      `json:"user_id"`
 	AbsensiID       string    `json:"absensi_id"`
 	Status          string    `json:"status"`
-	AbsensiMasuk    time.Time `json:"absensi_masuk"`
-	AbsensiPulang   time.Time `json:"absensi_pulang"`
+	AbsensiMasuk    *time.Time `json:"absensi_masuk"`
+	AbsensiPulang   *time.Time `json:"absensi_pulang"`
 	HasFotoMasuk    bool      `json:"has_foto_masuk"`
 	HasFotoPulang   bool      `json:"has_foto_pulang"`
 	LatitudeMasuk   float64   `json:"latitude_masuk"`
@@ -219,24 +219,27 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Status is required")
 	}
 
-	var absensiMasuk, absensiPulang time.Time
-	var err error
+	var absensiMasuk *time.Time
+	var absensiPulang *time.Time
 
 	if req.AbsensiMasuk != "" {
-		absensiMasuk, err = time.Parse(time.RFC3339, req.AbsensiMasuk)
+		t, err := time.Parse(time.RFC3339, req.AbsensiMasuk)
 		if err != nil {
 			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid format for absensi_masuk (use RFC3339)")
 		}
+		absensiMasuk = &t
 	} else {
 		// Default to current time if not provided
-		absensiMasuk = time.Now()
+		now := time.Now()
+		absensiMasuk = &now
 	}
 
 	if req.AbsensiPulang != "" {
-		absensiPulang, err = time.Parse(time.RFC3339, req.AbsensiPulang)
+		t, err := time.Parse(time.RFC3339, req.AbsensiPulang)
 		if err != nil {
 			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid format for absensi_pulang (use RFC3339)")
 		}
+		absensiPulang = &t
 	}
 
 	// Verify User exists
@@ -315,7 +318,7 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		if err != nil {
 			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid format for absensi_masuk (use RFC3339)")
 		}
-		absensi.AbsensiMasuk = masuk
+		absensi.AbsensiMasuk = &masuk
 	}
 
 	if req.AbsensiPulang != "" {
@@ -323,7 +326,7 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		if err != nil {
 			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid format for absensi_pulang (use RFC3339)")
 		}
-		absensi.AbsensiPulang = pulang
+		absensi.AbsensiPulang = &pulang
 	}
 	if req.FotoMasuk != "" {
 		absensi.FotoMasuk = req.FotoMasuk

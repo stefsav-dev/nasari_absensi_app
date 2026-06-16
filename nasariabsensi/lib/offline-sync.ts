@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { absensiService } from './api';
 
 const PENDING_ABSENSI_KEY = 'pending_absensi_queue';

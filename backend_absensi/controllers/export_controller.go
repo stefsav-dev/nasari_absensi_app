@@ -116,8 +116,8 @@ func worksheetXML(absensis []models.Absensi) string {
 			absensi.User.NamaLengkap,
 			absensi.User.Email,
 			absensi.Status,
-			formatExcelTime(absensi.AbsensiMasuk),
-			formatExcelTime(absensi.AbsensiPulang),
+			formatExcelTimePtr(absensi.AbsensiMasuk),
+			formatExcelTimePtr(absensi.AbsensiPulang),
 			formatExcelTime(absensi.CreatedAt),
 			formatExcelTime(absensi.UpdatedAt),
 		}
@@ -158,6 +158,13 @@ func excelColumnName(index int) string {
 
 func formatExcelTime(value time.Time) string {
 	if value.IsZero() {
+		return ""
+	}
+	return value.Format("2006-01-02 15:04:05")
+}
+
+func formatExcelTimePtr(value *time.Time) string {
+	if value == nil || value.IsZero() {
 		return ""
 	}
 	return value.Format("2006-01-02 15:04:05")

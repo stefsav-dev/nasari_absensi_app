@@ -28,6 +28,10 @@ func ConnectDatabase() *gorm.DB {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
+	// Fix zero date issues from older migrations
+	db.Exec("ALTER TABLE absensi MODIFY absensi_masuk DATETIME NULL DEFAULT NULL")
+	db.Exec("ALTER TABLE absensi MODIFY absensi_pulang DATETIME NULL DEFAULT NULL")
+
 	seedDefaultUsers(db)
 
 	return db

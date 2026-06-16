@@ -15,6 +15,8 @@ export default function TabLayout() {
   useEffect(() => {
     // Listen for network state changes
     const unsubscribe = NetInfo.addEventListener(async (state) => {
+      // Offline sync disabled for now
+      /*
       if (state.isConnected) {
         // We are online, try to sync
         const syncedCount = await syncPendingAbsensi();
@@ -25,6 +27,7 @@ export default function TabLayout() {
           );
         }
       }
+      */
     });
 
     return () => unsubscribe();
