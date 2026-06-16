@@ -12,7 +12,7 @@ import (
 
 func ConnectDatabase() *gorm.DB {
 
-	dbHost := "127.0.0.1"
+	dbHost := "mysql"
 	dbPort := "3306"
 	dbUser := "root"
 	dbPassword := "root"
