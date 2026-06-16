@@ -176,7 +176,7 @@ func (a *AuthController) Logout(c *fiber.Ctx) error {
 	if ttl > 0 {
 		// Blacklist token in Redis with remaining TTL
 		ctx := context.Background()
-		
+
 		// Fallback to getting redis client from locals if a.RedisClient is somehow closed
 		rClient := a.RedisClient
 		if localsRedis, ok := c.Locals("redis").(*redis.Client); ok && localsRedis != nil {
@@ -218,5 +218,48 @@ func (a *AuthController) GetProfile(c *fiber.Ctx) error {
 		"email":        userData.Email,
 		"nama_lengkap": userData.NamaLengkap,
 		"role":         userData.Role,
+		"foto":         userData.Foto,
+	})
+}
+
+type UpdateProfileRequest struct {
+	NamaLengkap string `json:"nama_lengkap"`
+	Foto        string `json:"foto"`
+}
+
+// Update Profile handler
+func (a *AuthController) UpdateProfile(c *fiber.Ctx) error {
+	user := c.Locals("user").(*config.Claims)
+
+	var req UpdateProfileRequest
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+
+	var userData models.User
+	if err := a.DB.First(&userData, user.UserID).Error; err != nil {
+		return utils.ErrorResponse(c, fiber.StatusNotFound, "User not found")
+	}
+
+	if req.NamaLengkap != "" {
+		userData.NamaLengkap = req.NamaLengkap
+	}
+	if req.Foto != "" {
+		userData.Foto = req.Foto
+	}
+
+	if err := a.DB.Save(&userData).Error; err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update profile")
+	}
+
+	return utils.SuccessResponse(c, fiber.Map{
+		"message": "Profile updated successfully",
+		"user": fiber.Map{
+			"id":           userData.ID,
+			"email":        userData.Email,
+			"nama_lengkap": userData.NamaLengkap,
+			"role":         userData.Role,
+			"foto":         userData.Foto,
+		},
 	})
 }

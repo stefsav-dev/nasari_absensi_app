@@ -34,6 +34,11 @@ func main() {
 	// Connect to database
 	db := connection.ConnectDatabase()
 
+	// Ensure columns are LONGTEXT for base64 images (GORM AutoMigrate doesn't expand existing VARCHAR columns)
+	db.Exec("ALTER TABLE absensi MODIFY foto_masuk LONGTEXT, MODIFY foto_pulang LONGTEXT;")
+	// Increase max_allowed_packet to 64MB to allow large base64 image payloads
+	db.Exec("SET GLOBAL max_allowed_packet = 67108864;")
+
 	// Connect to Redis
 	redisClient := connection.ConnectRedis()
 

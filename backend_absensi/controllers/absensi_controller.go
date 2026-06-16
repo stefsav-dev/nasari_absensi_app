@@ -3,6 +3,7 @@ package controllers
 import (
 	"backend_absensi/models"
 	"backend_absensi/utils"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -161,11 +162,39 @@ func (ac *AbsensiController) GetTodayAbsensi(c *fiber.Ctx) error {
 				"absensi": nil,
 			})
 		}
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve today's absensi")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve today's absensi: "+err.Error())
 	}
 
 	return utils.SuccessResponse(c, fiber.Map{
 		"absensi": toAbsensiResponse(absensi),
+	})
+}
+
+// ─────────────────────────────────────────────
+// GET my absensi history
+// ─────────────────────────────────────────────
+func (ac *AbsensiController) GetMyAbsensiHistory(c *fiber.Ctx) error {
+	fmt.Println("HIT GetMyAbsensiHistory endpoint!")
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "User ID not found")
+	}
+
+	var absensis []models.Absensi
+	if err := ac.DB.Preload("User").Where("user_id = ?", userID).Order("absensi_masuk desc").Find(&absensis).Error; err != nil {
+		fmt.Println("DB error:", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve absensi history")
+	}
+
+	fmt.Println("Found", len(absensis), "history records")
+	response := make([]AbsensiResponse, 0, len(absensis))
+	for _, a := range absensis {
+		response = append(response, toAbsensiResponse(a))
+	}
+
+	return utils.SuccessResponse(c, fiber.Map{
+		"total":   len(response),
+		"absensi": response,
 	})
 }
 

@@ -34,6 +34,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	})
 	protected.Use(middleware.AuthMiddleware())
 	protected.Get("/profile", authController.GetProfile)
+	protected.Put("/profile", authController.UpdateProfile)
 	protected.Post("/logout", authController.Logout)
 
 	adminRoutes := protected.Group("/admin")
@@ -114,6 +115,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 
 	//absensi routes
 	pegawaiRoutes.Get("/absensi", absensiController.GetTodayAbsensi)
+	pegawaiRoutes.Get("/absensi/history", absensiController.GetMyAbsensiHistory)
 	pegawaiRoutes.Post("/absensi", absensiController.CreateAbsensi)
 	pegawaiRoutes.Put("/absensi/:id", absensiController.UpdateAbsensi)
 

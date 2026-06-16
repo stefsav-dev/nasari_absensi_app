@@ -17,4 +17,5 @@ type User struct {
 	Password    string `json:"password" gorm:"not null"`
 	NamaLengkap string `json:"nama_lengkap" gorm:"not null"`
 	Role        Role   `json:"role" gorm:"not null"`
+	Foto        string `json:"foto" gorm:"type:longtext"`
 }

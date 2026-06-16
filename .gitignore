@@ -12,6 +12,6 @@ frontend_absensi/.env
 node_modules/
 .next/
 dist/
-build/absensiapp/
-absensiapp/node_modules/
-absensiapp/.expo/
+build/nasariabsensi/
+nasariabsensi/node_modules/
+nasariabsensi/.expo/
