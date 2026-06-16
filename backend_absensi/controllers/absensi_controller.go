@@ -264,6 +264,7 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 	}
 
 	if err := ac.DB.Create(&absensi).Error; err != nil {
+		fmt.Println("DB Create Error:", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create absensi")
 	}
 
@@ -341,6 +342,7 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 	}
 
 	if err := ac.DB.Save(&absensi).Error; err != nil {
+		fmt.Println("DB Update Error:", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update absensi")
 	}
 

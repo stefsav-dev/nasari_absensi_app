@@ -6,6 +6,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: nasari_absensi
+    command: --max_allowed_packet=64M
     expose:
       - "3306"
     volumes:
