@@ -225,6 +225,7 @@ func (a *AuthController) GetProfile(c *fiber.Ctx) error {
 type UpdateProfileRequest struct {
 	NamaLengkap string `json:"nama_lengkap"`
 	Foto        string `json:"foto"`
+	Password    string `json:"password"`
 }
 
 // Update Profile handler
@@ -246,6 +247,13 @@ func (a *AuthController) UpdateProfile(c *fiber.Ctx) error {
 	}
 	if req.Foto != "" {
 		userData.Foto = req.Foto
+	}
+	if req.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to hash password")
+		}
+		userData.Password = string(hashedPassword)
 	}
 
 	if err := a.DB.Save(&userData).Error; err != nil {

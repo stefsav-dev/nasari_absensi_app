@@ -49,7 +49,7 @@ function RootLayoutNav() {
     </Stack>
   );
 }
-
+//Root layout
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 

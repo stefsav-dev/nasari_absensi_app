@@ -21,15 +21,15 @@ type Employes struct {
 	Alamat         string    `json:"alamat"`
 	AlamatSekarang string    `json:"alamat_sekarang"`
 	NoTelp         string    `json:"no_telp"`
-	TanggalKerja   time.Time `json:"tanggal_kerja"`
+	TanggalKerja   *time.Time `json:"tanggal_kerja"`
 	Divisi         string    `json:"divisi"`
 	Jabatan        string    `json:"jabatan"`
 	Bagian         string    `json:"bagian"`
 	Grade          string    `json:"grade"`
 	SJabatan       string    `json:"s_jabatan"`
 	SKaryawan      string    `json:"s_karyawan"`
-	TanggalMulai   time.Time `json:"tanggal_mulai"`
-	TanggalSelesai time.Time `json:"tanggal_selesai"`
+	TanggalMulai   *time.Time `json:"tanggal_mulai"`
+	TanggalSelesai *time.Time `json:"tanggal_selesai"`
 	Kantor         string    `json:"kantor"`
 	Photo          string    `json:"photo"`
 }

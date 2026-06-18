@@ -1,14 +1,46 @@
 import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, View, ScrollView, Platform, StatusBar, Text, Image, Alert, ActivityIndicator, Modal } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, ScrollView, Platform, StatusBar, Text, Image, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth-context';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function ProfileScreen() {
-  const { user, signOut, updateProfilePhoto } = useAuth();
+  const { user, signOut, updateProfilePhoto, updatePassword } = useAuth();
   const [updatingPhoto, setUpdatingPhoto] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
+
+  // Change Password State
+  const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      setPasswordError('Kedua kolom harus diisi.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Password dan konfirmasi tidak cocok.');
+      return;
+    }
+    
+    setIsUpdatingPassword(true);
+    setPasswordError('');
+    try {
+      await updatePassword(newPassword);
+      Alert.alert('Sukses', 'Password berhasil diubah.');
+      setIsPasswordModalVisible(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      setPasswordError(error.message || 'Gagal mengubah password.');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   const handleSelectImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -104,8 +136,13 @@ export default function ProfileScreen() {
         {/* Pengaturan Keamanan */}
         <SectionHeader title="Pengaturan Keamanan" />
         <View style={styles.sectionContainer}>
-          <MenuItem label="Ganti pin" actionText="Ganti" />
-          <MenuItem label="Ganti password" actionText="Ganti" noBorder />
+          {/* <MenuItem label="Ganti pin" actionText="Ganti" /> */}
+          <MenuItem 
+            label="Ganti password" 
+            actionText="Ganti" 
+            onPress={() => setIsPasswordModalVisible(true)} 
+            noBorder 
+          />
         </View>
 
         {/* Tentang Aplikasi */}
@@ -144,6 +181,85 @@ export default function ProfileScreen() {
             >
               <Ionicons name="close-circle" size={40} color="#fff" />
             </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal Ganti Password */}
+      <Modal
+        visible={isPasswordModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setIsPasswordModalVisible(false);
+          setNewPassword('');
+          setConfirmPassword('');
+          setPasswordError('');
+        }}
+      >
+        <TouchableOpacity 
+          style={styles.modalBackground}
+          activeOpacity={1}
+          onPress={() => {}}
+        >
+          <View style={styles.passwordModalContent}>
+            <Text style={styles.passwordModalTitle}>Ganti Password</Text>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password Baru</Text>
+              <TextInput
+                style={styles.inputField}
+                secureTextEntry
+                placeholder="Masukkan password baru"
+                value={newPassword}
+                onChangeText={(text) => {
+                  setNewPassword(text);
+                  setPasswordError('');
+                }}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Konfirmasi Password</Text>
+              <TextInput
+                style={styles.inputField}
+                secureTextEntry
+                placeholder="Konfirmasi password baru"
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  setPasswordError('');
+                }}
+              />
+            </View>
+
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+            <View style={styles.modalActionButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setIsPasswordModalVisible(false);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError('');
+                }}
+              >
+                <Text style={styles.modalButtonTextCancel}>Batal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={handleUpdatePassword}
+                disabled={isUpdatingPassword}
+              >
+                {isUpdatingPassword ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonTextSubmit}>Simpan</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -272,5 +388,78 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -50,
     right: 10,
+  },
+  passwordModalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  passwordModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  inputField: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#334155',
+    backgroundColor: '#f8fafc',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalActionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f1f5f9',
+    marginRight: 8,
+  },
+  modalButtonSubmit: {
+    backgroundColor: '#0ea5e9',
+    marginLeft: 8,
+  },
+  modalButtonTextCancel: {
+    color: '#64748b',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextSubmit: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

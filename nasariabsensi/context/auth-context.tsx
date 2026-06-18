@@ -17,6 +17,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfilePhoto: (base64Photo: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -132,8 +133,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updatePassword = async (password: string) => {
+    try {
+      const response = await api.put('/protected/profile', { password });
+      if (!response.data || !response.data.success) {
+        throw new Error('Gagal memperbarui password');
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.error || error.message || 'Gagal memperbarui password';
+      throw new Error(errMsg);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signIn, signOut, updateProfilePhoto }}>
+    <AuthContext.Provider value={{ session, user, isLoading, signIn, signOut, updateProfilePhoto, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

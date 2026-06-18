@@ -6,10 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { absensiService } from '@/lib/api';
 import { configureNotifications, requestNotificationPermissions, scheduleDailyNotifications } from '@/lib/notifications';
+import { useAuth } from '@/context/auth-context';
 
 configureNotifications();
 
 export default function HomeScreen() {
+  const { user } = useAuth();
   const [absensiData, setAbsensiData] = useState<any>(null);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export default function HomeScreen() {
   // Format Date (Monday, 08 Nov 2021)
   const formatDate = (date: Date) => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
+    return date.toLocaleDateString('id-ID', options);
   };
 
   // Extract times for today
@@ -91,7 +93,10 @@ export default function HomeScreen() {
       <View style={styles.topSection}>
         <SafeAreaView>
           <View style={styles.headerTop}>
-            <Text style={styles.headerTitle}>Live Attendance</Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.headerTitle}>NASARI Absensi</Text>
+              <Text style={styles.headerSubTitle}>Selamat datang, {user?.nama_lengkap || 'Pengguna'}</Text>
+            </View>
             {loading && <ActivityIndicator size="small" color="#fff" style={styles.loaderIcon} />}
             <TouchableOpacity style={styles.historyIcon} onPress={() => router.push('/history')}>
               <Ionicons name="time-outline" size={24} color="#fff" />
@@ -110,11 +115,11 @@ export default function HomeScreen() {
         <View style={styles.card}>
           <View style={styles.cardTimes}>
             <View style={styles.timeBox}>
-              <Text style={styles.timeBoxLabel}>Start Time</Text>
+              <Text style={styles.timeBoxLabel}>Absen Masuk</Text>
               <Text style={styles.timeBoxValue}>{startTime}</Text>
             </View>
             <View style={styles.timeBox}>
-              <Text style={styles.timeBoxLabel}>End Time</Text>
+              <Text style={styles.timeBoxLabel}>Absen Pulang</Text>
               <Text style={styles.timeBoxValue}>{endTime}</Text>
             </View>
           </View>
@@ -152,19 +157,19 @@ export default function HomeScreen() {
 
       {/* Recent Attendance List */}
       <ScrollView style={styles.historySection} contentContainerStyle={{ paddingBottom: 100 }}>
-        <Text style={styles.historyTitle}>Recent attendance</Text>
+        <Text style={styles.historyTitle}>Riwayat Absensi</Text>
         
         {historyData.slice(0, 5).map((item, index) => (
           <View key={index} style={styles.historyItem}>
             <Text style={styles.historyItemDate}>{formatDate(new Date(item.absensi_masuk))}</Text>
             
             <View style={styles.historyRow}>
-              <Text style={styles.historyLabel}>Clock In</Text>
+              <Text style={styles.historyLabel}>Jam Absen Masuk</Text>
               <Text style={styles.historyValue}>{formatTime(new Date(item.absensi_masuk))}</Text>
             </View>
             
             <View style={styles.historyRow}>
-              <Text style={styles.historyLabel}>Clock Out</Text>
+              <Text style={styles.historyLabel}>Jam Absen Pulang</Text>
               <Text style={styles.historyValue}>
                 {item.absensi_pulang && new Date(item.absensi_pulang).getFullYear() > 2000 
                   ? formatTime(new Date(item.absensi_pulang)) 
@@ -198,18 +203,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginBottom: 1,
     position: 'relative',
     paddingHorizontal: 20,
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '600',
+  },
+  headerSubTitle: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 5,
+    opacity: 0.9,
   },
   historyIcon: {
     position: 'absolute',
     right: 20,
+    marginTop: 30,
   },
   loaderIcon: {
     position: 'absolute',
@@ -217,17 +229,17 @@ const styles = StyleSheet.create({
   },
   clockContainer: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 0,
   },
   timeBig: {
     color: '#fff',
-    fontSize: 64,
+    fontSize: 50,
     fontWeight: 'bold',
   },
   dateSmall: {
     color: '#fff',
-    fontSize: 16,
-    marginTop: 8,
+    fontSize: 18,
+    marginTop: 0,
     opacity: 0.9,
   },
   cardWrapper: {

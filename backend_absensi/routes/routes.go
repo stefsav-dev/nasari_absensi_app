@@ -16,6 +16,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	lokasiController := &controllers.LokasiController{DB: db}
 	absensiController := &controllers.AbsensiController{DB: db, RedisClient: redisClient}
 	exportController := &controllers.ExportController{DB: db}
+	importController := &controllers.ImportController{DB: db}
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Welcome to the Nasari Absensi API!"})
@@ -45,6 +46,11 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 
 	// Pegawai routes
 	adminRoutes.Get("/pegawai", pegawaiController.GetAllPegawai)
+	adminRoutes.Get("/pegawai/:id", pegawaiController.GetPegawaiByID)
+	adminRoutes.Post("/pegawai", pegawaiController.CreatePegawai)
+	adminRoutes.Put("/pegawai/:id", pegawaiController.UpdatePegawai)
+	adminRoutes.Delete("/pegawai/:id", pegawaiController.DeletePegawai)
+	adminRoutes.Post("/pegawai/import", importController.ImportEmployes)
 
 	// Absensi routes
 	adminRoutes.Get("/absensi", absensiController.GetAllAbsensi)
