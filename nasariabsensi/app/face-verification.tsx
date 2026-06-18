@@ -69,11 +69,13 @@ export default function FaceVerificationScreen() {
 
       if (type === 'pulang' && id) {
         payload.id = id;
+        payload.absensi_pulang = new Date().toISOString();
         payload.foto_pulang = base64Image;
         payload.latitude_pulang = latitude;
         payload.longitude_pulang = longitude;
         payload.akurasi_pulang = accuracy;
       } else {
+        payload.absensi_masuk = new Date().toISOString();
         payload.foto_masuk = base64Image;
         payload.latitude_masuk = latitude;
         payload.longitude_masuk = longitude;
