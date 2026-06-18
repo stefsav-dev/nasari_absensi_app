@@ -4,6 +4,7 @@ import (
 	"backend_absensi/models"
 	"errors"
 	"log"
+	"os"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
@@ -12,11 +13,32 @@ import (
 
 func ConnectDatabase() *gorm.DB {
 
-	dbHost := "127.0.0.1"
-	dbPort := "3306"
-	dbUser := "root"
-	dbPassword := "root"
-	dbName := "nasari_absensi"
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "127.0.0.1"
+	}
+	
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "3306"
+	}
+	
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "root"
+	}
+	
+	dbPassword := os.Getenv("DB_PASSWORD")
+	// If it's empty but user wasn't set in env, fallback to default
+	if dbPassword == "" && os.Getenv("DB_USER") == "" {
+		dbPassword = "root"
+	}
+	
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "nasari_absensi"
+	}
+
 	dsn := dbUser + ":" + dbPassword + "@tcp(" + dbHost + ":" + dbPort + ")/" + dbName + "?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {

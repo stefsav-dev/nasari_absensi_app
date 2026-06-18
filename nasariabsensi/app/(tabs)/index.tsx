@@ -3,6 +3,7 @@ import { StyleSheet, TouchableOpacity, View, ActivityIndicator, ScrollView, Plat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { absensiService } from '@/lib/api';
 import { configureNotifications, requestNotificationPermissions, scheduleDailyNotifications } from '@/lib/notifications';
@@ -70,7 +71,7 @@ export default function HomeScreen() {
     return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace(':', '.');
   };
 
-  // Format Date (Monday, 08 Nov 2021)
+  // Format Date (Kamis, 18 Jun 2026)
   const formatDate = (date: Date) => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' };
     return date.toLocaleDateString('id-ID', options);
@@ -87,20 +88,22 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0284c7" />
+      <StatusBar barStyle="light-content" backgroundColor="#2c5a7f" />
       
       {/* Top Blue Section */}
-      <View style={styles.topSection}>
+      <LinearGradient colors={['#2c5a7f', '#78824f', '#dcb412']} locations={[0, 0.5, 1]} style={styles.topSection}>
         <SafeAreaView>
           <View style={styles.headerTop}>
-            <View style={{ alignItems: 'center' }}>
+            <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>NASARI Absensi</Text>
               <Text style={styles.headerSubTitle}>Selamat datang, {user?.nama_lengkap || 'Pengguna'}</Text>
             </View>
-            {loading && <ActivityIndicator size="small" color="#fff" style={styles.loaderIcon} />}
-            <TouchableOpacity style={styles.historyIcon} onPress={() => router.push('/history')}>
-              <Ionicons name="time-outline" size={24} color="#fff" />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              {loading && <ActivityIndicator size="small" color="#fff" style={styles.loaderIcon} />}
+              <TouchableOpacity style={styles.historyIcon} onPress={() => router.push('/history')}>
+                <Ionicons name="time-outline" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
           
           <View style={styles.clockContainer}>
@@ -108,19 +111,20 @@ export default function HomeScreen() {
             <Text style={styles.dateSmall}>{formatDate(currentTime)}</Text>
           </View>
         </SafeAreaView>
-      </View>
+      </LinearGradient>
 
       {/* Floating Card */}
       <View style={styles.cardWrapper}>
         <View style={styles.card}>
           <View style={styles.cardTimes}>
             <View style={styles.timeBox}>
-              <Text style={styles.timeBoxLabel}>Absen Masuk</Text>
-              <Text style={styles.timeBoxValue}>{startTime}</Text>
+              <Text style={styles.timeBoxLabel}>Clock In</Text>
+              <Text style={styles.timeBoxValueBlue}>{startTime}</Text>
             </View>
+            <View style={styles.dividerVertical} />
             <View style={styles.timeBox}>
-              <Text style={styles.timeBoxLabel}>Absen Pulang</Text>
-              <Text style={styles.timeBoxValue}>{endTime}</Text>
+              <Text style={styles.timeBoxLabel}>Clock Out</Text>
+              <Text style={styles.timeBoxValueBlue}>{endTime}</Text>
             </View>
           </View>
 
@@ -139,7 +143,7 @@ export default function HomeScreen() {
                 onPress={() => handleAbsensiPress('pulang', absensiData.id)}
                 disabled={locationLoading || loading || currentTime.getHours() < 17}
               >
-                {locationLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionButtonText}>Clock out</Text>}
+                {locationLoading ? <ActivityIndicator color="#475569" /> : <Text style={currentTime.getHours() < 17 ? styles.actionButtonTextDisabled : styles.actionButtonText}>Clock out</Text>}
               </TouchableOpacity>
               {currentTime.getHours() < 17 && (
                 <Text style={styles.timeWarningText}>
@@ -149,7 +153,7 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={[styles.actionButton, styles.actionButtonDisabled]}>
-              <Text style={styles.actionButtonText}>Selesai untuk hari ini</Text>
+              <Text style={styles.actionButtonTextDisabled}>Selesai untuk hari ini</Text>
             </View>
           )}
         </View>
@@ -157,19 +161,24 @@ export default function HomeScreen() {
 
       {/* Recent Attendance List */}
       <ScrollView style={styles.historySection} contentContainerStyle={{ paddingBottom: 100 }}>
-        <Text style={styles.historyTitle}>Riwayat Absensi</Text>
+        <View style={styles.historyHeader}>
+          <Text style={styles.historyTitle}>Riwayat Absensi</Text>
+          <TouchableOpacity onPress={() => router.push('/history')}>
+            <Text style={styles.historyLink}>Lihat Semua</Text>
+          </TouchableOpacity>
+        </View>
         
         {historyData.slice(0, 5).map((item, index) => (
-          <View key={index} style={styles.historyItem}>
+          <View key={index} style={styles.historyItemCard}>
             <Text style={styles.historyItemDate}>{formatDate(new Date(item.absensi_masuk))}</Text>
             
             <View style={styles.historyRow}>
-              <Text style={styles.historyLabel}>Jam Absen Masuk</Text>
+              <Text style={styles.historyLabel}>Clock In</Text>
               <Text style={styles.historyValue}>{formatTime(new Date(item.absensi_masuk))}</Text>
             </View>
             
             <View style={styles.historyRow}>
-              <Text style={styles.historyLabel}>Jam Absen Pulang</Text>
+              <Text style={styles.historyLabel}>Clock Out</Text>
               <Text style={styles.historyValue}>
                 {item.absensi_pulang && new Date(item.absensi_pulang).getFullYear() > 2000 
                   ? formatTime(new Date(item.absensi_pulang)) 
@@ -193,58 +202,65 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   topSection: {
-    backgroundColor: '#0284c7', // vibrant blue
-    height: 320,
+    height: 340,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   headerTop: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 1,
-    position: 'relative',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
     color: '#fff',
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   headerSubTitle: {
     color: '#fff',
-    fontSize: 16,
-    marginTop: 5,
+    fontSize: 14,
+    marginTop: 4,
     opacity: 0.9,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   historyIcon: {
-    position: 'absolute',
-    right: 20,
-    marginTop: 30,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 10,
+    borderRadius: 24,
+    marginLeft: 10,
   },
   loaderIcon: {
-    position: 'absolute',
-    left: 20,
+    marginRight: 10,
   },
   clockContainer: {
     alignItems: 'center',
-    marginTop: 0,
+    marginTop: 10,
   },
   timeBig: {
     color: '#fff',
-    fontSize: 50,
-    fontWeight: 'bold',
+    fontSize: 64,
+    fontWeight: '900',
+    letterSpacing: -1,
   },
   dateSmall: {
     color: '#fff',
-    fontSize: 18,
-    marginTop: 0,
+    fontSize: 16,
+    marginTop: 4,
+    fontWeight: '500',
     opacity: 0.9,
   },
   cardWrapper: {
-    paddingHorizontal: 20,
-    marginTop: -80, // Overlap blue section
+    paddingHorizontal: 24,
+    marginTop: -70, // Overlap blue section
     zIndex: 10,
   },
   card: {
@@ -252,66 +268,95 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8, // for Android
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    elevation: 5, // for Android
   },
   cardTimes: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 24,
   },
+  dividerVertical: {
+    width: 1,
+    backgroundColor: '#f1f5f9',
+    marginHorizontal: 10,
+  },
   timeBox: {
     alignItems: 'center',
     flex: 1,
   },
   timeBoxLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748b',
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
+    letterSpacing: 0.5,
   },
-  timeBoxValue: {
-    fontSize: 18,
-    color: '#0f172a',
+  timeBoxValueBlue: {
+    fontSize: 28,
+    color: '#004b87',
     fontWeight: 'bold',
   },
   actionButton: {
-    backgroundColor: '#0284c7',
-    borderRadius: 12,
+    backgroundColor: '#004b87',
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionButtonDisabled: {
-    backgroundColor: '#cbd5e1',
+    backgroundColor: '#e2e8f0',
   },
   actionButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  actionButtonTextDisabled: {
+    color: '#475569',
+    fontSize: 16,
+    fontWeight: '600',
   },
   historySection: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 30,
   },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#475569',
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  historyItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingVertical: 16,
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  historyLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#004b87',
+  },
+  historyItemCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
   },
   historyItemDate: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
-    color: '#0284c7',
+    color: '#004b87',
     marginBottom: 12,
   },
   historyRow: {
@@ -321,7 +366,7 @@ const styles = StyleSheet.create({
   },
   historyLabel: {
     fontSize: 14,
-    color: '#475569',
+    color: '#64748b',
     fontWeight: '500',
   },
   historyValue: {

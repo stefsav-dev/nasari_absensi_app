@@ -78,7 +78,7 @@ export default function HistoryScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="title">Riwayat Absensi</ThemedText>
+        <Text style={styles.themesHistory}>Riwayat Absensi</Text>
       </View>
 
       {loading ? (
@@ -182,4 +182,8 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: '#334155',
   },
+  themesHistory: {
+    color: "white",
+    fontSize: 20
+  }
 });
