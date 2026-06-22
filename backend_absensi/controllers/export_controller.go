@@ -97,6 +97,7 @@ func worksheetXML(absensis []models.Absensi) string {
 		"Status",
 		"Absensi Masuk",
 		"Absensi Pulang",
+		"Keterangan",
 		// "Created At",
 		// "Updated At",
 	}
@@ -104,7 +105,7 @@ func worksheetXML(absensis []models.Absensi) string {
 	var builder bytes.Buffer
 	builder.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`)
 	builder.WriteString(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`)
-	builder.WriteString(`<cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="2" width="40" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="5" width="28" customWidth="1"/><col min="6" max="6" width="16" customWidth="1"/><col min="7" max="10" width="22" customWidth="1"/></cols>`)
+	builder.WriteString(`<cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="2" width="40" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="5" width="28" customWidth="1"/><col min="6" max="6" width="16" customWidth="1"/><col min="7" max="11" width="22" customWidth="1"/></cols>`)
 	builder.WriteString(`<sheetData>`)
 
 	writeRow(&builder, 1, headers, true)
@@ -118,6 +119,7 @@ func worksheetXML(absensis []models.Absensi) string {
 			absensi.Status,
 			formatExcelTimePtr(absensi.AbsensiMasuk),
 			formatExcelTimePtr(absensi.AbsensiPulang),
+			absensi.Keterangan,
 			// formatExcelTime(absensi.CreatedAt),
 			// formatExcelTime(absensi.UpdatedAt),
 		}
@@ -125,7 +127,7 @@ func worksheetXML(absensis []models.Absensi) string {
 	}
 
 	builder.WriteString(`</sheetData>`)
-	builder.WriteString(`<autoFilter ref="A1:J` + strconv.Itoa(len(absensis)+1) + `"/>`)
+	builder.WriteString(`<autoFilter ref="A1:K` + strconv.Itoa(len(absensis)+1) + `"/>`)
 	builder.WriteString(`</worksheet>`)
 
 	return builder.String()

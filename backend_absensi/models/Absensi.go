@@ -22,6 +22,7 @@ type Absensi struct {
 	LatitudePulang  float64   `json:"latitude_pulang"`
 	LongitudePulang float64   `json:"longitude_pulang"`
 	AkurasiPulang   float64   `json:"akurasi_pulang"`
+	Keterangan      string    `json:"keterangan" gorm:"type:text"`
 }
 
 func (Absensi) TableName() string {

@@ -70,6 +70,7 @@ function getStatusBadgeVariant(status: string) {
     case "alpha":
       return "destructive" as const;
     case "izin":
+    case "ijin":
     case "cuti":
       return "outline" as const;
     default:
@@ -122,6 +123,7 @@ export default function AbsensiPage() {
     status: "Hadir",
     absensi_masuk: "",
     absensi_pulang: "",
+    keterangan: "",
   });
 
   const { data: absensiData, isLoading, isError, refetch } = useAbsensi();
@@ -138,11 +140,12 @@ export default function AbsensiPage() {
         status: formData.status,
         absensi_masuk: formData.absensi_masuk ? new Date(formData.absensi_masuk).toISOString() : new Date().toISOString(),
         absensi_pulang: formData.absensi_pulang ? new Date(formData.absensi_pulang).toISOString() : undefined,
+        keterangan: formData.status === "Ijin" ? formData.keterangan : undefined,
       },
       {
         onSuccess: () => {
           setIsAddOpen(false);
-          setFormData({ user_id: "", status: "Hadir", absensi_masuk: "", absensi_pulang: "" });
+          setFormData({ user_id: "", status: "Hadir", absensi_masuk: "", absensi_pulang: "", keterangan: "" });
         },
       }
     );
@@ -159,6 +162,7 @@ export default function AbsensiPage() {
           status: formData.status,
           absensi_masuk: formData.absensi_masuk ? new Date(formData.absensi_masuk).toISOString() : undefined,
           absensi_pulang: formData.absensi_pulang ? new Date(formData.absensi_pulang).toISOString() : undefined,
+          keterangan: formData.status === "Ijin" ? formData.keterangan : undefined,
         },
       },
       {
@@ -181,21 +185,25 @@ export default function AbsensiPage() {
       return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     };
 
-    const capitalizedStatus = item.status 
+    let capitalizedStatus = item.status 
       ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() 
       : "Hadir";
+    if (capitalizedStatus === "Izin" || capitalizedStatus === "Ijin") {
+      capitalizedStatus = "Ijin";
+    }
 
     setFormData({
       user_id: item.user_id.toString(),
       status: capitalizedStatus,
       absensi_masuk: formatDateTimeLocal(item.absensi_masuk),
       absensi_pulang: formatDateTimeLocal(item.absensi_pulang),
+      keterangan: item.keterangan || "",
     });
     setIsEditOpen(true);
   };
 
   const openAdd = () => {
-    setFormData({ user_id: "", status: "Hadir", absensi_masuk: "", absensi_pulang: "" });
+    setFormData({ user_id: "", status: "Hadir", absensi_masuk: "", absensi_pulang: "", keterangan: "" });
     setIsAddOpen(true);
   };
 
@@ -231,7 +239,7 @@ export default function AbsensiPage() {
   const totalAlpha = absensiList.filter((a) => a.status?.toLowerCase() === "alpha").length;
   const totalIzinCuti = absensiList.filter((a) => {
     const s = a.status?.toLowerCase();
-    return s === "izin" || s === "cuti";
+    return s === "izin" || s === "ijin" || s === "cuti";
   }).length;
 
   return (
@@ -318,7 +326,7 @@ export default function AbsensiPage() {
               </div>
               <div>
                 <p className="text-xl font-bold">{totalIzinCuti}</p>
-                <p className="text-xs text-muted-foreground">Izin / Cuti</p>
+                <p className="text-xs text-muted-foreground">Ijin / Cuti</p>
               </div>
             </div>
           </CardContent>
@@ -496,7 +504,7 @@ export default function AbsensiPage() {
                 <SelectContent>
                   <SelectItem value="Hadir">Hadir</SelectItem>
                   <SelectItem value="Terlambat">Terlambat</SelectItem>
-                  <SelectItem value="Izin">Izin</SelectItem>
+                  <SelectItem value="Ijin">Ijin</SelectItem>
                   <SelectItem value="Cuti">Cuti</SelectItem>
                   <SelectItem value="Alpha">Alpha</SelectItem>
                 </SelectContent>
@@ -521,6 +529,19 @@ export default function AbsensiPage() {
                 onChange={(e) => setFormData({ ...formData, absensi_pulang: e.target.value })}
               />
             </div>
+            {formData.status === "Ijin" && (
+              <div className="space-y-2">
+                <Label htmlFor="keterangan">Keterangan</Label>
+                <textarea
+                  id="keterangan"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={formData.keterangan}
+                  onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
+                  placeholder="Masukkan keterangan ijin..."
+                  required
+                />
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>Batal</Button>
               <Button type="submit" disabled={isCreating}>
@@ -550,7 +571,7 @@ export default function AbsensiPage() {
                 <SelectContent>
                   <SelectItem value="Hadir">Hadir</SelectItem>
                   <SelectItem value="Terlambat">Terlambat</SelectItem>
-                  <SelectItem value="Izin">Izin</SelectItem>
+                  <SelectItem value="Ijin">Ijin</SelectItem>
                   <SelectItem value="Cuti">Cuti</SelectItem>
                   <SelectItem value="Alpha">Alpha</SelectItem>
                 </SelectContent>
@@ -575,6 +596,19 @@ export default function AbsensiPage() {
                 onChange={(e) => setFormData({ ...formData, absensi_pulang: e.target.value })}
               />
             </div>
+            {formData.status === "Ijin" && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-keterangan">Keterangan</Label>
+                <textarea
+                  id="edit-keterangan"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={formData.keterangan}
+                  onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
+                  placeholder="Masukkan keterangan ijin..."
+                  required
+                />
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>Batal</Button>
               <Button type="submit" disabled={isUpdating}>

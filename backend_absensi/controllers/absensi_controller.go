@@ -43,6 +43,7 @@ type AbsensiResponse struct {
 	AkurasiPulang   float64   `json:"akurasi_pulang"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	Keterangan      string    `json:"keterangan"`
 	User            UserInfo  `json:"user"`
 }
 
@@ -64,6 +65,7 @@ func toAbsensiResponse(a models.Absensi) AbsensiResponse {
 		AkurasiPulang:   a.AkurasiPulang,
 		CreatedAt:       a.CreatedAt,
 		UpdatedAt:       a.UpdatedAt,
+		Keterangan:      a.Keterangan,
 		User: UserInfo{
 			ID:    a.User.ID,
 			Name:  a.User.NamaLengkap,
@@ -85,6 +87,7 @@ type CreateAbsensiRequest struct {
 	LatitudeMasuk  float64 `json:"latitude_masuk"`
 	LongitudeMasuk float64 `json:"longitude_masuk"`
 	AkurasiMasuk   float64 `json:"akurasi_masuk"`
+	Keterangan     string  `json:"keterangan"`
 }
 
 type UpdateAbsensiRequest struct {
@@ -99,6 +102,7 @@ type UpdateAbsensiRequest struct {
 	Latitude        float64 `json:"latitude"`
 	Longitude       float64 `json:"longitude"`
 	Akurasi         float64 `json:"akurasi"`
+	Keterangan      string  `json:"keterangan"`
 }
 
 // ─────────────────────────────────────────────
@@ -264,6 +268,7 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		LatitudeMasuk:  firstNonZero(req.LatitudeMasuk, req.Latitude),
 		LongitudeMasuk: firstNonZero(req.LongitudeMasuk, req.Longitude),
 		AkurasiMasuk:   firstNonZero(req.AkurasiMasuk, req.Akurasi),
+		Keterangan:     req.Keterangan,
 	}
 
 	if err := ac.DB.Create(&absensi).Error; err != nil {
@@ -342,6 +347,9 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 	}
 	if req.AkurasiPulang != 0 || req.Akurasi != 0 {
 		absensi.AkurasiPulang = firstNonZero(req.AkurasiPulang, req.Akurasi)
+	}
+	if req.Keterangan != "" {
+		absensi.Keterangan = req.Keterangan
 	}
 
 	if err := ac.DB.Save(&absensi).Error; err != nil {

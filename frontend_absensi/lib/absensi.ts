@@ -17,6 +17,7 @@ export interface Absensi {
   absensi_pulang: string;
   created_at: string;
   updated_at: string;
+  keterangan?: string;
   user: UserInfo;
 }
 
@@ -25,12 +26,14 @@ export interface CreateAbsensiRequest {
   status: string;
   absensi_masuk: string; // RFC3339 string
   absensi_pulang?: string; // Optional RFC3339 string
+  keterangan?: string;
 }
 
 export interface UpdateAbsensiRequest {
   status?: string;
   absensi_masuk?: string; // RFC3339 string
   absensi_pulang?: string; // RFC3339 string
+  keterangan?: string;
 }
 
 export interface AbsensiListResponse {
