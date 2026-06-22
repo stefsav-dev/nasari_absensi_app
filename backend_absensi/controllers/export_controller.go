@@ -90,15 +90,15 @@ func buildAbsensiExcel(absensis []models.Absensi) ([]byte, error) {
 func worksheetXML(absensis []models.Absensi) string {
 	headers := []string{
 		"No",
-		"Absensi ID",
-		"User ID",
+		// "Absensi ID",
+		// "User ID",
 		"Nama Lengkap",
 		"Email",
 		"Status",
 		"Absensi Masuk",
 		"Absensi Pulang",
-		"Created At",
-		"Updated At",
+		// "Created At",
+		// "Updated At",
 	}
 
 	var builder bytes.Buffer
@@ -111,15 +111,15 @@ func worksheetXML(absensis []models.Absensi) string {
 	for index, absensi := range absensis {
 		row := []string{
 			strconv.Itoa(index + 1),
-			absensi.AbsensiID,
-			strconv.FormatUint(uint64(absensi.UserID), 10),
+			// absensi.AbsensiID,
+			// strconv.FormatUint(uint64(absensi.UserID), 10),
 			absensi.User.NamaLengkap,
 			absensi.User.Email,
 			absensi.Status,
 			formatExcelTimePtr(absensi.AbsensiMasuk),
 			formatExcelTimePtr(absensi.AbsensiPulang),
-			formatExcelTime(absensi.CreatedAt),
-			formatExcelTime(absensi.UpdatedAt),
+			// formatExcelTime(absensi.CreatedAt),
+			// formatExcelTime(absensi.UpdatedAt),
 		}
 		writeRow(&builder, index+2, row, false)
 	}

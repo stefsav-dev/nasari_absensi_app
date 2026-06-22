@@ -62,15 +62,15 @@ import { usePegawai } from "@/hooks/use-pegawai";
 import { exportAbsensiExcel } from "@/lib/absensi";
 
 function getStatusBadgeVariant(status: string) {
-  switch (status) {
-    case "Hadir":
+  switch (status?.toLowerCase()) {
+    case "hadir":
       return "default" as const;
-    case "Terlambat":
+    case "terlambat":
       return "secondary" as const;
-    case "Alpha":
+    case "alpha":
       return "destructive" as const;
-    case "Izin":
-    case "Cuti":
+    case "izin":
+    case "cuti":
       return "outline" as const;
     default:
       return "outline" as const;
@@ -107,6 +107,8 @@ function formatDuration(startStr: string, endStr: string) {
 export default function AbsensiPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
 
   // Dialog states
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -179,9 +181,13 @@ export default function AbsensiPage() {
       return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     };
 
+    const capitalizedStatus = item.status 
+      ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() 
+      : "Hadir";
+
     setFormData({
       user_id: item.user_id.toString(),
-      status: item.status,
+      status: capitalizedStatus,
       absensi_masuk: formatDateTimeLocal(item.absensi_masuk),
       absensi_pulang: formatDateTimeLocal(item.absensi_pulang),
     });
@@ -196,12 +202,12 @@ export default function AbsensiPage() {
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      const blob = await exportAbsensiExcel();
+      const blob = await exportAbsensiExcel(exportStartDate, exportEndDate);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
       link.href = url;
-      link.download = `export_absensi_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
+      link.download = `export absensi ${format(new Date(), "dd MMMM yyyy", { locale: id })}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -220,10 +226,13 @@ export default function AbsensiPage() {
     item.user?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalHadir = absensiList.filter((a) => a.status === "Hadir").length;
-  const totalTerlambat = absensiList.filter((a) => a.status === "Terlambat").length;
-  const totalAlpha = absensiList.filter((a) => a.status === "Alpha").length;
-  const totalIzinCuti = absensiList.filter((a) => a.status === "Izin" || a.status === "Cuti").length;
+  const totalHadir = absensiList.filter((a) => a.status?.toLowerCase() === "hadir").length;
+  const totalTerlambat = absensiList.filter((a) => a.status?.toLowerCase() === "terlambat").length;
+  const totalAlpha = absensiList.filter((a) => a.status?.toLowerCase() === "alpha").length;
+  const totalIzinCuti = absensiList.filter((a) => {
+    const s = a.status?.toLowerCase();
+    return s === "izin" || s === "cuti";
+  }).length;
 
   return (
     <div className="space-y-6 pt-4">
@@ -235,15 +244,28 @@ export default function AbsensiPage() {
             Pantau dan kelola rekap absensi seluruh pegawai.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 items-center">
+          <div className="flex items-center gap-2">
+            <Input 
+              type="date" 
+              className="w-[130px]" 
+              value={exportStartDate}
+              onChange={(e) => setExportStartDate(e.target.value)}
+              title="Tanggal Awal (Opsional)"
+            />
+            <span className="text-muted-foreground">-</span>
+            <Input 
+              type="date" 
+              className="w-[130px]" 
+              value={exportEndDate}
+              onChange={(e) => setExportEndDate(e.target.value)}
+              title="Tanggal Akhir (Opsional)"
+            />
+          </div>
           <Button variant="outline" className="w-full sm:w-auto" onClick={handleExport} disabled={isExporting}>
             <Download className={`mr-2 size-4 ${isExporting ? "animate-pulse" : ""}`} />
             {isExporting ? "Exporting..." : "Export"}
           </Button>
-          {/* <Button className="w-full sm:w-auto" onClick={openAdd}>
-            <Plus className="mr-2 size-4" />
-            Tambah Absensi
-          </Button> */}
         </div>
       </div>
 
@@ -403,7 +425,7 @@ export default function AbsensiPage() {
                           {formatDuration(item.absensi_masuk, item.absensi_pulang)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Badge variant={getStatusBadgeVariant(item.status)}>
+                          <Badge variant={getStatusBadgeVariant(item.status)} className="capitalize">
                             {item.status}
                           </Badge>
                         </TableCell>

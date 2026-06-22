@@ -77,8 +77,13 @@ export async function deleteAbsensi(id: number): Promise<void> {
   await api.delete(`/protected/admin/absensi/${id}`);
 }
 
-export async function exportAbsensiExcel(): Promise<Blob> {
-  const response = await api.get<Blob>("/protected/admin/absensi-export", {
+export async function exportAbsensiExcel(startDate?: string, endDate?: string): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (startDate) params.append("start_date", startDate);
+  if (endDate) params.append("end_date", endDate);
+  
+  const queryString = params.toString() ? `?${params.toString()}` : "";
+  const response = await api.get<Blob>(`/protected/admin/absensi-export${queryString}`, {
     responseType: "blob",
   });
   return response.data;

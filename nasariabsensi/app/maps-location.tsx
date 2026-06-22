@@ -1,10 +1,51 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+
+const getLeafletHTML = (latitude: number, longitude: number, accuracy: number) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; }
+    html, body, #map { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map').setView([${latitude}, ${longitude}], 17);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // User location marker
+    L.marker([${latitude}, ${longitude}]).addTo(map)
+      .bindPopup('<b>Lokasi Anda</b><br>Titik koordinat absensi')
+      .openPopup();
+
+    // Accuracy circle
+    L.circle([${latitude}, ${longitude}], {
+      radius: ${accuracy},
+      color: '#0ea5e9',
+      fillColor: '#0ea5e930',
+      fillOpacity: 0.3,
+      weight: 2,
+    }).addTo(map);
+  </script>
+</body>
+</html>
+`;
 
 export default function MapsLocationScreen() {
   const params = useLocalSearchParams();
@@ -86,26 +127,19 @@ export default function MapsLocationScreen() {
       </View>
 
       <View style={styles.mapContainer}>
-        <MapView
+        <WebView
           style={styles.map}
-          initialRegion={{
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.005,
-            longitudeDelta: 0.005,
-          }}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
-        >
-          <Marker
-            coordinate={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            }}
-            title="Lokasi Anda"
-            description="Titik koordinat absensi Anda"
-          />
-        </MapView>
+          originWhitelist={['*']}
+          source={{ html: getLeafletHTML(
+            location.coords.latitude,
+            location.coords.longitude,
+            location.coords.accuracy || 10
+          )}}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          scrollEnabled={false}
+          bounces={false}
+        />
       </View>
 
       <View style={styles.footer}>

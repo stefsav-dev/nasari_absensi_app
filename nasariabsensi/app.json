@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "nasariabsensi",
+    "name": "Nasari Absensi",
     "slug": "nasariabsensi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/nasari_android_app_icon.png",
     "scheme": "nasariabsensi",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -57,7 +57,8 @@
           "icon": "./assets/images/icon.png",
           "color": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

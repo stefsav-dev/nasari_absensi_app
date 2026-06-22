@@ -18,6 +18,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const lastFetchedDate = React.useRef(new Date().getDate());
 
   // Live Clock effect
   useEffect(() => {
@@ -26,6 +27,15 @@ export default function HomeScreen() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Auto refresh when day changes (midnight)
+  useEffect(() => {
+    const currentDay = currentTime.getDate();
+    if (currentDay !== lastFetchedDate.current) {
+      lastFetchedDate.current = currentDay;
+      fetchData();
+    }
+  }, [currentTime.getDate()]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -43,6 +53,7 @@ export default function HomeScreen() {
 
   const fetchData = async () => {
     setLoading(true);
+    lastFetchedDate.current = new Date().getDate();
     try {
       const [todayRes, historyRes] = await Promise.all([
         absensiService.getTodayAbsensi(),

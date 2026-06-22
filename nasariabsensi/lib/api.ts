@@ -7,6 +7,12 @@ const getApiBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
+  
+  // Guarantee production URL is used in release mode (.apk) even if .env fails to inject
+  if (!__DEV__) {
+    return "https://api-nasariabsensi.collabcoop.id/api";
+  }
+
   // Detect Metro bundler IP to connect to backend on local network
   const debuggerHost = Constants.expoConfig?.hostUri;
   const ip = debuggerHost ? debuggerHost.split(':')[0] : 'localhost';
