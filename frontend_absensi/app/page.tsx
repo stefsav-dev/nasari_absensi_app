@@ -17,7 +17,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [nik, setNik] = useState("");
   const [password, setPassword] = useState("");
 
   const { mutate, isPending, isError, error } = useLogin();
@@ -27,7 +27,7 @@ export default function LoginPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    mutate({ email, password });
+    mutate({ nik, password });
   }
 
   return (
@@ -39,6 +39,7 @@ export default function LoginPage() {
         alt="Login Banner"
         fill
         className="object-cover"
+        sizes="(max-width: 1024px) 0vw, 50vw"
         priority
       />
 
@@ -60,7 +61,7 @@ export default function LoginPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
-            Masukkan email dan password Anda
+            Masukkan NIK dan password Anda
           </CardDescription>
         </CardHeader>
 
@@ -73,13 +74,13 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="nik">NIK</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="contoh@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="nik"
+                type="text"
+                placeholder="Masukkan NIK"
+                value={nik}
+                onChange={(e) => setNik(e.target.value)}
                 required
                 disabled={isPending}
               />

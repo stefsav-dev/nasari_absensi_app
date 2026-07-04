@@ -20,6 +20,7 @@ export default function LeafletMap({
   const mapRef = useRef<Map | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const circleRef = useRef<Circle | null>(null);
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
 
   // Initialize map — runs once after mount
   useEffect(() => {
@@ -139,6 +140,7 @@ export default function LeafletMap({
       });
 
       mapRef.current = map;
+      leafletRef.current = L;
     });
 
     return () => {
@@ -164,11 +166,57 @@ export default function LeafletMap({
 
   // Sync marker + circle + view when coordinates change externally (e.g. geolocation)
   useEffect(() => {
-    if (!mapRef.current || !latitude || !longitude) return;
-    if (markerRef.current) markerRef.current.setLatLng([latitude, longitude]);
-    if (circleRef.current) circleRef.current.setLatLng([latitude, longitude]);
+    if (!mapRef.current || !leafletRef.current || !latitude || !longitude) return;
+    
+    const L = leafletRef.current;
+    
+    const customIcon = L.divIcon({
+      className: "",
+      html: `
+        <div style="
+          width: 32px;
+          height: 32px;
+          background: #3b82f6;
+          border: 3px solid white;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        "></div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+    });
+
+    if (markerRef.current) {
+      markerRef.current.setLatLng([latitude, longitude]);
+    } else {
+      markerRef.current = L.marker([latitude, longitude], {
+        icon: customIcon,
+        draggable: true,
+      }).addTo(mapRef.current);
+
+      markerRef.current.on("dragend", () => {
+        const pos = markerRef.current!.getLatLng();
+        circleRef.current?.setLatLng([pos.lat, pos.lng]);
+        onMapClick(pos.lat, pos.lng);
+      });
+    }
+
+    if (circleRef.current) {
+      circleRef.current.setLatLng([latitude, longitude]);
+      circleRef.current.setRadius(radius || 100);
+    } else {
+      circleRef.current = L.circle([latitude, longitude], {
+        radius: radius || 100,
+        color: "#3b82f6",
+        fillColor: "#3b82f6",
+        fillOpacity: 0.15,
+        weight: 2,
+      }).addTo(mapRef.current);
+    }
+
     mapRef.current.setView([latitude, longitude], mapRef.current.getZoom());
-  }, [latitude, longitude]);
+  }, [latitude, longitude, radius, onMapClick]);
 
   return (
     <>

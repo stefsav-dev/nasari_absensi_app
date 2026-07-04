@@ -3,7 +3,7 @@ import api from "./api";
 // ─── Types ───────────────────────────────────────────────
 
 export interface LoginRequest {
-  email: string;
+  nik: string;
   password: string;
 }
 

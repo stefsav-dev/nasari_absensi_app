@@ -11,6 +11,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Crosshair,
+  Search,
 } from "lucide-react";
 import {
   Card,
@@ -52,6 +53,34 @@ export default function TambahLokasiPage() {
   });
 
   const [hasPin, setHasPin] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          searchQuery
+        )}`
+      );
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(Number(data[0].lat).toFixed(6));
+        const lon = parseFloat(Number(data[0].lon).toFixed(6));
+        setForm((prev) => ({ ...prev, latitude: lat, longitude: lon }));
+        setHasPin(true);
+      } else {
+        alert("Lokasi tidak ditemukan");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan saat mencari lokasi");
+    } finally {
+      setIsSearching(false);
+    }
+  }
 
   function handleMapClick(lat: number, lng: number) {
     setForm((prev) => ({
@@ -205,6 +234,35 @@ export default function TambahLokasiPage() {
                 </div>
 
                 <Separator />
+
+                {/* Cari Lokasi */}
+                <div className="space-y-2">
+                  <Label htmlFor="search">Cari Alamat (Opsional)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="search"
+                      placeholder="Cth: Monas, Jakarta..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearch();
+                        }
+                      }}
+                    />
+                    <Button type="button" onClick={handleSearch} disabled={isSearching}>
+                      {isSearching ? (
+                        <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                      ) : (
+                        <Search className="size-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Cari alamat untuk memprediksi titik koordinat.
+                  </p>
+                </div>
 
                 {/* Koordinat (read-only, set by map click) */}
                 <div className="space-y-3">

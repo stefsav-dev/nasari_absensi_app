@@ -55,18 +55,18 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
-function getStatusDisplay(status: string) {
-  const s = status?.toLowerCase();
-  if (s === "k" || s === "aktif") return "Aktif";
-  if (s === "t" || s === "tidak aktif" || s === "nonaktif") return "Tidak Aktif";
-  return status || "-";
-}
+// function getStatusDisplay(status: string) {
+//   const s = status?.toLowerCase();
+//   if (s === "k" || s === "aktif") return "Aktif";
+//   if (s === "t" || s === "tidak aktif" || s === "nonaktif") return "Tidak Aktif";
+//   return status || "-";
+// }
 
-function getStatusBadgeVariant(status: string) {
-  const s = status?.toLowerCase();
-  if (s === "k" || s === "aktif") return "outline" as const;
-  return "secondary" as const;
-}
+// function getStatusBadgeVariant(status: string) {
+//   const s = status?.toLowerCase();
+//   if (s === "k" || s === "aktif") return "outline" as const;
+//   return "secondary" as const;
+// }
 
 export default function PegawaiPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -357,7 +357,7 @@ export default function PegawaiPage() {
                   Departemen
                 </TableHead>
                 <TableHead className="hidden sm:table-cell">Role</TableHead>
-                <TableHead>Status</TableHead>
+                {/* <TableHead>Status</TableHead> */}
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -401,9 +401,9 @@ export default function PegawaiPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(emp.status)}>
+                      {/* <Badge variant={getStatusBadgeVariant(emp.status)}>
                         {getStatusDisplay(emp.status)}
-                      </Badge>
+                      </Badge> */}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -585,9 +585,9 @@ export default function PegawaiPage() {
               <div className="grid grid-cols-3 items-center gap-4">
                 <span className="font-semibold text-muted-foreground">Status:</span>
                 <span className="col-span-2">
-                  <Badge variant={getStatusBadgeVariant(selectedPegawai.status)}>
+                  {/* <Badge variant={getStatusBadgeVariant(selectedPegawai.status)}>
                     {getStatusDisplay(selectedPegawai.status)}
-                  </Badge>
+                  </Badge> */}
                 </span>
               </div>
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Download, CalendarDays, Filter, Plus, Trash2, Edit, AlertCircle, RefreshCw, MoreHorizontal } from "lucide-react";
+import { Search, Download, CalendarDays, Filter, Plus, Trash2, Edit, AlertCircle, RefreshCw, MoreHorizontal, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import {
@@ -114,7 +114,9 @@ export default function AbsensiPage() {
   // Dialog states
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
+  const [detailTarget, setDetailTarget] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   // Form states
@@ -202,6 +204,11 @@ export default function AbsensiPage() {
     setIsEditOpen(true);
   };
 
+  const openDetail = (item: any) => {
+    setDetailTarget(item);
+    setIsDetailOpen(true);
+  };
+
   const openAdd = () => {
     setFormData({ user_id: "", status: "Hadir", absensi_masuk: "", absensi_pulang: "", keterangan: "" });
     setIsAddOpen(true);
@@ -241,6 +248,7 @@ export default function AbsensiPage() {
     const s = a.status?.toLowerCase();
     return s === "izin" || s === "ijin" || s === "cuti";
   }).length;
+  const totalSakit = absensiList.filter((a) => a.status?.toLowerCase() === "sakit").length;
 
   return (
     <div className="space-y-6 pt-4">
@@ -278,7 +286,7 @@ export default function AbsensiPage() {
       </div>
 
       {/* Summary */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -327,6 +335,19 @@ export default function AbsensiPage() {
               <div>
                 <p className="text-xl font-bold">{totalIzinCuti}</p>
                 <p className="text-xs text-muted-foreground">Ijin / Cuti</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="rounded-md bg-purple-500/10 p-2">
+                <CalendarDays className="size-4 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{totalSakit}</p>
+                <p className="text-xs text-muted-foreground">Sakit</p>
               </div>
             </div>
           </CardContent>
@@ -445,6 +466,10 @@ export default function AbsensiPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openDetail(item)}>
+                                <Eye className="mr-2 size-4" />
+                                Detail
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openEdit(item)}>
                                 <Edit className="mr-2 size-4" />
                                 Edit
@@ -647,6 +672,65 @@ export default function AbsensiPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* DETAIL DIALOG */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Detail Absensi</DialogTitle>
+            <DialogDescription>
+              Detail informasi absensi pegawai.
+            </DialogDescription>
+          </DialogHeader>
+          {detailTarget && (
+            <div className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Nama Pegawai</p>
+                  <p className="font-medium">{detailTarget.user?.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Status</p>
+                  <Badge variant={getStatusBadgeVariant(detailTarget.status)} className="capitalize mt-1">
+                    {detailTarget.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Waktu Masuk</p>
+                  <p className="font-medium">{formatDateDisplay(detailTarget.absensi_masuk)} {formatTimeDisplay(detailTarget.absensi_masuk)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Waktu Pulang</p>
+                  <p className="font-medium">{formatDateDisplay(detailTarget.absensi_pulang)} {formatTimeDisplay(detailTarget.absensi_pulang)}</p>
+                </div>
+              </div>
+              
+              {detailTarget.keterangan && (
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground mb-1">Keterangan / Alasan</p>
+                  <div className="p-3 bg-muted rounded-md text-sm border whitespace-pre-wrap">
+                    {detailTarget.keterangan}
+                  </div>
+                </div>
+              )}
+
+              {/* Display Lampiran (foto_masuk) */}
+              {detailTarget.foto_masuk && (
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground mb-2">Lampiran Bukti (Foto/Dokumen)</p>
+                  <div className="overflow-hidden rounded-md border flex items-center justify-center bg-black/5 p-2">
+                    <img 
+                      src={detailTarget.foto_masuk} 
+                      alt="Lampiran" 
+                      className="max-h-80 object-contain rounded"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
