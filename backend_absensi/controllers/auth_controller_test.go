@@ -111,7 +111,7 @@ func TestLogin_Success(t *testing.T) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	reqBody := LoginRequest{
-		Email:    "test@example.com",
+		Nik:      "123456789",
 		Password: password,
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
@@ -143,8 +143,8 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 	defer mr.Close()
 
 	reqBody := LoginRequest{
-		Email:    "test@example.com",
-		Password: "wrongpassword",
+		Nik:      "070900073",
+		Password: "nasari123",
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 

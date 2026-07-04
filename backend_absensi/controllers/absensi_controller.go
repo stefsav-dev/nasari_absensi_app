@@ -158,8 +158,8 @@ func (ac *AbsensiController) GetTodayAbsensi(c *fiber.Ctx) error {
 
 	var absensi models.Absensi
 	if err := ac.DB.Preload("User").
-		Where("user_id = ? AND absensi_masuk >= ? AND absensi_masuk < ?", userID, startOfDay, endOfDay).
-		Order("absensi_masuk DESC").
+		Where("user_id = ? AND ( (absensi_masuk >= ? AND absensi_masuk < ?) OR (created_at >= ? AND created_at < ?) )", userID, startOfDay, endOfDay, startOfDay, endOfDay).
+		Order("created_at DESC").
 		First(&absensi).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return utils.SuccessResponse(c, fiber.Map{
@@ -232,8 +232,8 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid format for absensi_masuk (use RFC3339)")
 		}
 		absensiMasuk = &t
-	} else {
-		// Default to current time if not provided
+	} else if req.Status == "Hadir" {
+		// Default to current time if not provided, ONLY for "Hadir"
 		now := time.Now()
 		absensiMasuk = &now
 	}

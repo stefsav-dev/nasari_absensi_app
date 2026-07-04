@@ -16,7 +16,6 @@ import (
 )
 
 func main() {
-	// Load .env file
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
@@ -31,18 +30,13 @@ func main() {
 	}
 	publicPort := strings.TrimPrefix(port, ":")
 
-	// Connect to database
 	db := connection.ConnectDatabase()
 
-	// Ensure columns are LONGTEXT for base64 images (GORM AutoMigrate doesn't expand existing VARCHAR columns)
 	db.Exec("ALTER TABLE absensi MODIFY foto_masuk LONGTEXT, MODIFY foto_pulang LONGTEXT;")
-	// Increase max_allowed_packet to 64MB to allow large base64 image payloads
 	db.Exec("SET GLOBAL max_allowed_packet = 67108864;")
 
-	// Connect to Redis
 	redisClient := connection.ConnectRedis()
 
-	// Initialize Fiber
 	app := fiber.New(fiber.Config{
 		BodyLimit: 15 * 1024 * 1024,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -52,7 +46,6 @@ func main() {
 		},
 	})
 
-	// Middleware
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
@@ -70,7 +63,6 @@ func main() {
 		Title:       "Nasari Absensi API",
 	}))
 
-	// Start server
 	log.Println("Server starting on port", publicPort)
 	if err := app.Listen(listenAddr); err != nil {
 		log.Fatal("Failed to start server:", err)

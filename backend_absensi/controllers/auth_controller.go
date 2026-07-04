@@ -21,7 +21,7 @@ type AuthController struct {
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	Nik      string `json:"nik" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
@@ -48,12 +48,12 @@ func (a *AuthController) Login(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	if err := a.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid email or password")
+	if err := a.DB.Joins("JOIN employes ON employes.user_id = users.id").Where("employes.nik = ?", req.Nik).First(&user).Error; err != nil {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid NIK or password")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid email or password")
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid NIK or password")
 	}
 
 	accessToken, err := config.JWTAuth.GenerateAccessToken(user.ID, user.Email, string(user.Role))
