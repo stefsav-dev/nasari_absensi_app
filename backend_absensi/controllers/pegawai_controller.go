@@ -3,9 +3,13 @@ package controllers
 import (
 	"backend_absensi/models"
 	"backend_absensi/utils"
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -27,8 +31,9 @@ type PegawaiResponse struct {
 	ID          uint        `json:"id"`
 	NamaLengkap string      `json:"nama_lengkap"`
 	Email       string      `json:"email"`
-	Role        models.Role `json:"role"`
+	Role        models.Role `json:"-"`
 	Departemen  string      `json:"departemen"`
+	Kantor      string      `json:"kantor"`
 	Status      string      `json:"status"`
 }
 
@@ -36,6 +41,7 @@ type UserWithEmploye struct {
 	models.User
 	Divisi string
 	Status string
+	Kantor string
 }
 
 type UserWithFullEmploye struct {
@@ -56,7 +62,7 @@ type PegawaiDetailResponse struct {
 	ID           uint        `json:"id"`
 	NamaLengkap  string      `json:"nama_lengkap"`
 	Email        string      `json:"email"`
-	Role         models.Role `json:"role"`
+	Role         models.Role `json:"-"`
 	Departemen   string      `json:"departemen"`
 	Status       string      `json:"status"`
 	Nik          string      `json:"nik"`
@@ -163,7 +169,7 @@ func (p *PegawaiController) GetAllPegawai(c *fiber.Ctx) error {
 
 	var usersWithEmployes []UserWithEmploye
 	query := p.DB.Model(&models.User{}).
-		Select("users.*, employes.divisi as divisi, employes.status as status").
+		Select("users.*, employes.divisi as divisi, employes.status as status, employes.kantor as kantor").
 		Joins("LEFT JOIN employes ON employes.user_id = users.id").
 		Where("users.role = ?", models.RolePegawai)
 
@@ -183,6 +189,7 @@ func (p *PegawaiController) GetAllPegawai(c *fiber.Ctx) error {
 			Email:       u.Email,
 			Role:        u.Role,
 			Departemen:  u.Divisi,
+			Kantor:      u.Kantor,
 			Status:      u.Status,
 		})
 	}
@@ -412,5 +419,213 @@ func (p *PegawaiController) DeletePegawai(c *fiber.Ctx) error {
 
 	return utils.SuccessResponse(c, fiber.Map{
 		"message": "Pegawai deleted successfully",
+	})
+}
+
+// ─────────────────────────────────────────────
+// Sync from external API
+// ─────────────────────────────────────────────
+type SyncAPIResponse struct {
+	Status  string         `json:"status"`
+	Message string         `json:"message"`
+	Data    []SyncEmployee `json:"data"`
+}
+
+type SyncEmployee struct {
+	Id      int    `json:"Id"`
+	Nik     string `json:"nik"`
+	Nama    string `json:"nama"`
+	Jabatan string `json:"jabatan"`
+	Bagian  string `json:"bagian"`
+	Kantor  string `json:"kantor"`
+}
+
+type AuthExtRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type AuthExtResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Data    struct {
+		Token string `json:"token"`
+	} `json:"data"`
+}
+
+func (p *PegawaiController) SyncPegawai(c *fiber.Ctx) error {
+	// Configure HTTP client to skip TLS verify
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	// 1. Login to external API first
+	loginPayload := AuthExtRequest{
+		Username: "admin",
+		Password: "54fcc26a58e14a6f5efc9b79ed784dad",
+	}
+	loginBytes, _ := json.Marshal(loginPayload)
+
+	loginResp, err := client.Post("https://116.254.117.243/api-absensi/api/login.php", "application/json", bytes.NewBuffer(loginBytes))
+	if err != nil {
+		fmt.Println("Error connecting to login:", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to connect to external login API: "+err.Error())
+	}
+	defer loginResp.Body.Close()
+
+	loginBody, err := io.ReadAll(loginResp.Body)
+	if err != nil {
+		fmt.Println("Error reading login response:", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to read external login response")
+	}
+
+	fmt.Println("Login response body:", string(loginBody))
+
+	var authExtRes AuthExtResponse
+	if err := json.Unmarshal(loginBody, &authExtRes); err != nil {
+		fmt.Println("Error parsing login response:", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to parse external login response")
+	}
+
+	if authExtRes.Data.Token == "" {
+		fmt.Println("Token is empty. Response status:", authExtRes.Status)
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Failed to get token from external API")
+	}
+
+	// 2. Fetch data using Bearer Token
+	req, err := http.NewRequest("GET", "https://116.254.117.243/api-absensi/api/", nil)
+	if err != nil {
+		fmt.Println("Error creating GET request:", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create request for external API")
+	}
+	req.Header.Add("Authorization", "Bearer "+authExtRes.Data.Token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error fetching data:", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to fetch from external API: "+err.Error())
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading data response:", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to read API response")
+	}
+
+	fmt.Println("Data response length:", len(body))
+
+	var apiRes SyncAPIResponse
+	if err := json.Unmarshal(body, &apiRes); err != nil {
+		fmt.Println("Error parsing data response:", string(body[:200])) // print first 200 chars
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to parse API response: "+err.Error())
+	}
+
+	if len(apiRes.Data) == 0 {
+		return utils.SuccessResponse(c, fiber.Map{"message": "No data found", "imported_count": 0, "skipped_count": 0})
+	}
+
+	var locationCache = make(map[string]uint)
+	importedCount := 0
+	skippedCount := 0
+
+	defaultPassword, _ := bcrypt.GenerateFromPassword([]byte("nasari123"), bcrypt.DefaultCost)
+
+	for _, empData := range apiRes.Data {
+		nik := strings.TrimSpace(empData.Nik)
+		nama := strings.TrimSpace(empData.Nama)
+		kantor := strings.TrimSpace(empData.Kantor)
+
+		if nik == "" {
+			skippedCount++
+			continue
+		}
+
+		// Check if employe exists
+		var existingEmploye models.Employes
+		if err := p.DB.Where("nik = ?", nik).First(&existingEmploye).Error; err == nil {
+			// Exists, skip
+			skippedCount++
+			continue
+		}
+
+		tx := p.DB.Begin()
+
+		// 1. User
+		var user models.User
+		if err := tx.Where("email = ?", nik).First(&user).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				// Create new user, mapping email to NIK
+				user = models.User{
+					Email:       nik,
+					Password:    string(defaultPassword),
+					NamaLengkap: nama,
+					Role:        models.RolePegawai,
+				}
+				if err := tx.Create(&user).Error; err != nil {
+					tx.Rollback()
+					skippedCount++
+					continue
+				}
+			} else {
+				tx.Rollback()
+				skippedCount++
+				continue
+			}
+		}
+
+		// 2. Location
+		lokasiID, ok := locationCache[kantor]
+		if !ok {
+			var location models.Location
+			if err := tx.Where("nama_lokasi = ?", kantor).First(&location).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					location = models.Location{
+						NamaLokasi: kantor,
+						Radius:     100,
+					}
+					if err := tx.Create(&location).Error; err != nil {
+						tx.Rollback()
+						skippedCount++
+						continue
+					}
+				} else {
+					tx.Rollback()
+					skippedCount++
+					continue
+				}
+			}
+			lokasiID = location.ID
+			locationCache[kantor] = lokasiID
+		}
+
+		// 3. Employes
+		employe := models.Employes{
+			UserID:   user.ID,
+			LokasiID: lokasiID,
+			Nik:      nik,
+			Divisi:   empData.Bagian,
+			Jabatan:  empData.Jabatan,
+			Kantor:   kantor,
+			Status:   "Aktif",
+		}
+
+		if err := tx.Create(&employe).Error; err != nil {
+			tx.Rollback()
+			skippedCount++
+			continue
+		}
+
+		tx.Commit()
+		importedCount++
+	}
+
+	p.invalidateCache()
+
+	return utils.SuccessResponse(c, fiber.Map{
+		"message":        "Synchronization completed",
+		"imported_count": importedCount,
+		"skipped_count":  skippedCount,
 	})
 }

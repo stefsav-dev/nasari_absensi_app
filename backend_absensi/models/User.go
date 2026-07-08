@@ -18,4 +18,5 @@ type User struct {
 	NamaLengkap string `json:"nama_lengkap" gorm:"not null"`
 	Role        Role   `json:"role" gorm:"not null"`
 	Foto        string `json:"foto" gorm:"type:longtext"`
+	FcmToken    string `json:"fcm_token"`
 }

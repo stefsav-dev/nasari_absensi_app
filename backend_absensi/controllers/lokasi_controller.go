@@ -59,8 +59,32 @@ type UpdateLokasiRequest struct {
 // GET all lokasi
 // ─────────────────────────────────────────────
 func (l *LokasiController) GetAllLokasi(c *fiber.Ctx) error {
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	search := c.Query("search", "")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	query := l.DB.Model(&models.Location{})
+
+	if search != "" {
+		query = query.Where("nama_lokasi LIKE ?", "%"+search+"%")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to count lokasi data")
+	}
+
 	var lokasi []models.Location
-	if err := l.DB.Find(&lokasi).Error; err != nil {
+	if err := query.Offset(offset).Limit(limit).Find(&lokasi).Error; err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve lokasi data")
 	}
 
@@ -70,7 +94,9 @@ func (l *LokasiController) GetAllLokasi(c *fiber.Ctx) error {
 	}
 
 	return utils.SuccessResponse(c, fiber.Map{
-		"total":  len(response),
+		"total":  total,
+		"page":   page,
+		"limit":  limit,
 		"lokasi": response,
 	})
 }

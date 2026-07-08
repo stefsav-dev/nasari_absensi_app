@@ -3,8 +3,15 @@ package controllers
 import (
 	"backend_absensi/models"
 	"backend_absensi/utils"
+	"bytes"
+	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -41,6 +48,7 @@ type AbsensiResponse struct {
 	LatitudePulang  float64   `json:"latitude_pulang"`
 	LongitudePulang float64   `json:"longitude_pulang"`
 	AkurasiPulang   float64   `json:"akurasi_pulang"`
+	NamaLokasi      string    `json:"nama_lokasi"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 	Keterangan      string    `json:"keterangan"`
@@ -63,6 +71,7 @@ func toAbsensiResponse(a models.Absensi) AbsensiResponse {
 		LatitudePulang:  a.LatitudePulang,
 		LongitudePulang: a.LongitudePulang,
 		AkurasiPulang:   a.AkurasiPulang,
+		NamaLokasi:      a.NamaLokasi,
 		CreatedAt:       a.CreatedAt,
 		UpdatedAt:       a.UpdatedAt,
 		Keterangan:      a.Keterangan,
@@ -87,6 +96,7 @@ type CreateAbsensiRequest struct {
 	LatitudeMasuk  float64 `json:"latitude_masuk"`
 	LongitudeMasuk float64 `json:"longitude_masuk"`
 	AkurasiMasuk   float64 `json:"akurasi_masuk"`
+	NamaLokasi     string  `json:"nama_lokasi"`
 	Keterangan     string  `json:"keterangan"`
 }
 
@@ -222,6 +232,9 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 	if req.Status == "" {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Status is required")
 	}
+	if !isValidStatus(req.Status) {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid status provided")
+	}
 
 	var absensiMasuk *time.Time
 	var absensiPulang *time.Time
@@ -268,6 +281,7 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		LatitudeMasuk:  firstNonZero(req.LatitudeMasuk, req.Latitude),
 		LongitudeMasuk: firstNonZero(req.LongitudeMasuk, req.Longitude),
 		AkurasiMasuk:   firstNonZero(req.AkurasiMasuk, req.Akurasi),
+		NamaLokasi:     req.NamaLokasi,
 		Keterangan:     req.Keterangan,
 	}
 
@@ -275,6 +289,9 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		fmt.Println("DB Create Error:", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create absensi")
 	}
+
+	// Push to external API
+	go PushAbsensiToExternalAPI(ac.DB, req.UserID, &absensi)
 
 	// Preload User manually for the response
 	absensi.User = user
@@ -315,6 +332,9 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 	}
 
 	if req.Status != "" {
+		if !isValidStatus(req.Status) {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid status provided")
+		}
 		absensi.Status = req.Status
 	}
 
@@ -357,6 +377,9 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update absensi")
 	}
 
+	// Push to external API
+	go PushAbsensiToExternalAPI(ac.DB, absensi.UserID, &absensi)
+
 	return utils.SuccessResponse(c, fiber.Map{
 		"message": "Absensi updated successfully",
 		"absensi": toAbsensiResponse(absensi),
@@ -395,4 +418,178 @@ func (ac *AbsensiController) DeleteAbsensi(c *fiber.Ctx) error {
 	return utils.SuccessResponse(c, fiber.Map{
 		"message": "Absensi deleted successfully",
 	})
+}
+
+// ─────────────────────────────────────────────
+// External Sync Helper
+// ─────────────────────────────────────────────
+type ExtAbsensiPayload struct {
+	KaryawanID int     `json:"karyawan_id"`
+	Tanggal    string  `json:"tanggal"`
+	JamMasuk   string  `json:"jam_masuk"`
+	JamKeluar  string  `json:"jam_keluar"`
+	Keterangan *string `json:"keterangan"`
+}
+
+func PushAbsensiToExternalAPI(db *gorm.DB, userID uint, absensi *models.Absensi) {
+	// Let it run in background safely, recover from panics
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in PushAbsensiToExternalAPI:", r)
+		}
+	}()
+
+	var employe models.Employes
+	if err := db.Where("user_id = ?", userID).First(&employe).Error; err != nil {
+		fmt.Println("Failed to find employe for external sync:", err)
+		return
+	}
+
+	// Format dates
+	var tanggal, jamMasuk, jamKeluar string
+	if absensi.AbsensiMasuk != nil {
+		tanggal = absensi.AbsensiMasuk.Format("2006-01-02")
+		jamMasuk = absensi.AbsensiMasuk.Format("15:04:05")
+	}
+
+	if absensi.AbsensiPulang != nil {
+		jamKeluar = absensi.AbsensiPulang.Format("15:04:05")
+		if tanggal == "" {
+			tanggal = absensi.AbsensiPulang.Format("2006-01-02")
+		}
+	}
+
+	var ket *string
+	if absensi.Keterangan != "" {
+		k := absensi.Keterangan
+		ket = &k
+	}
+
+	payload := ExtAbsensiPayload{
+		KaryawanID: int(employe.ID),
+		Tanggal:    tanggal,
+		JamMasuk:   jamMasuk,
+		JamKeluar:  jamKeluar,
+		Keterangan: ket,
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
+
+	// 1. Login
+	loginPayload := map[string]string{
+		"username": "admin",
+		"password": "54fcc26a58e14a6f5efc9b79ed784dad",
+	}
+	loginBytes, _ := json.Marshal(loginPayload)
+	loginResp, err := client.Post("https://116.254.117.243/api-absensi/api/login.php", "application/json", bytes.NewBuffer(loginBytes))
+	if err != nil {
+		fmt.Println("PushAbsensi: Failed to login:", err)
+		return
+	}
+	defer loginResp.Body.Close()
+
+	var authRes struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(loginResp.Body).Decode(&authRes); err != nil {
+		fmt.Println("PushAbsensi: Failed to decode login response:", err)
+		return
+	}
+	if authRes.Data.Token == "" {
+		fmt.Println("PushAbsensi: Token is empty")
+		return
+	}
+
+	// 2. Post Absensi
+	payloadBytes, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", "https://116.254.117.243/api-absensi/api/", bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		fmt.Println("PushAbsensi: Failed to create request:", err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+authRes.Data.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("PushAbsensi: Failed to post data:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		fmt.Println("PushAbsensi: Successfully synced attendance for KaryawanID:", employe.ID)
+	} else {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		fmt.Printf("PushAbsensi: Failed to sync, status %d, body: %s\n", resp.StatusCode, string(bodyBytes))
+	}
+}
+
+func isValidStatus(status string) bool {
+	switch models.StatusAbsensi(status) {
+	case models.StatusHadir, models.StatusSakit, models.StatusIjin,
+		models.StatusAlpha, models.StatusDinasLuar, models.StatusCutiTahunan,
+		models.StatusCutiBersalin, models.StatusCutiAlasanPenting, models.StatusCutiDiluarTanggungan:
+		return true
+	}
+	return false
+}
+
+// ─────────────────────────────────────────────
+// GET absensi photo
+// ─────────────────────────────────────────────
+func (ac *AbsensiController) GetAbsensiPhoto(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid ID")
+	}
+
+	photoType := c.Query("type", "masuk") // "masuk" or "pulang"
+
+	var absensi models.Absensi
+	if err := ac.DB.Select("id", "user_id", "foto_masuk", "foto_pulang").First(&absensi, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).SendString("Absensi not found")
+	}
+
+	// Authorization check
+	userID, ok := c.Locals("user_id").(uint)
+	role, _ := c.Locals("user_role").(string)
+	
+	if ok && role != string(models.RoleAdmin) && role != string(models.RoleSuperadmin) && role != string(models.RoleAdminKantorCabang) {
+		if absensi.UserID != userID {
+			return c.Status(fiber.StatusForbidden).SendString("Forbidden")
+		}
+	}
+
+	var base64Data string
+	if photoType == "pulang" {
+		base64Data = absensi.FotoPulang
+	} else {
+		base64Data = absensi.FotoMasuk
+	}
+
+	if base64Data == "" {
+		return c.Status(fiber.StatusNotFound).SendString("Photo not found")
+	}
+
+	// Remove data URI prefix if exists
+	idx := strings.Index(base64Data, "base64,")
+	if idx != -1 {
+		base64Data = base64Data[idx+7:]
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to decode photo")
+	}
+
+	c.Set("Content-Type", "image/jpeg")
+	c.Set("Cache-Control", "public, max-age=86400")
+	return c.Send(decoded)
 }

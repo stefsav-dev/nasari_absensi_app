@@ -6,6 +6,20 @@ import (
 	"gorm.io/gorm"
 )
 
+type StatusAbsensi string
+
+const (
+	StatusHadir                          StatusAbsensi = "Hadir"
+	StatusSakit                          StatusAbsensi = "Sakit"
+	StatusIjin                           StatusAbsensi = "Ijin"
+	StatusAlpha                          StatusAbsensi = "Alpha"
+	StatusDinasLuar                      StatusAbsensi = "Dinas Luar"
+	StatusCutiTahunan                    StatusAbsensi = "Cuti Tahunan"
+	StatusCutiBersalin                   StatusAbsensi = "Cuti Bersalin (Melahirkan)"
+	StatusCutiAlasanPenting              StatusAbsensi = "Cuti Karena Alasan Penting"
+	StatusCutiDiluarTanggungan           StatusAbsensi = "Cuti Diluar Tanggungan Perusahaan"
+)
+
 type Absensi struct {
 	gorm.Model
 	UserID          uint      `json:"user_id" gorm:"not null"`
@@ -22,6 +36,7 @@ type Absensi struct {
 	LatitudePulang  float64   `json:"latitude_pulang"`
 	LongitudePulang float64   `json:"longitude_pulang"`
 	AkurasiPulang   float64   `json:"akurasi_pulang"`
+	NamaLokasi      string    `json:"nama_lokasi" gorm:"type:varchar(255)"`
 	Keterangan      string    `json:"keterangan" gorm:"type:text"`
 }
 

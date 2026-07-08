@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"backend_absensi/services"
 	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -36,6 +37,12 @@ func main() {
 	db.Exec("SET GLOBAL max_allowed_packet = 67108864;")
 
 	redisClient := connection.ConnectRedis()
+
+	// Initialize Firebase and Cron
+	if err := services.InitFirebase(); err != nil {
+		log.Printf("Failed to initialize Firebase: %v\n", err)
+	}
+	services.InitCron(db)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 15 * 1024 * 1024,

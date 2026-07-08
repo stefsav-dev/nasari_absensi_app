@@ -271,3 +271,35 @@ func (a *AuthController) UpdateProfile(c *fiber.Ctx) error {
 		},
 	})
 }
+
+type FcmTokenRequest struct {
+	Token string `json:"fcm_token" binding:"required"`
+}
+
+// Update FcmToken handler
+func (a *AuthController) UpdateFcmToken(c *fiber.Ctx) error {
+	user := c.Locals("user").(*config.Claims)
+
+	var req FcmTokenRequest
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+
+	if req.Token == "" {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "FCM Token is required")
+	}
+
+	var userData models.User
+	if err := a.DB.First(&userData, user.UserID).Error; err != nil {
+		return utils.ErrorResponse(c, fiber.StatusNotFound, "User not found")
+	}
+
+	userData.FcmToken = req.Token
+	if err := a.DB.Save(&userData).Error; err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to save FCM token")
+	}
+
+	return utils.SuccessResponse(c, fiber.Map{
+		"message": "FCM Token updated successfully",
+	})
+}

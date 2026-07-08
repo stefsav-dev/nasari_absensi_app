@@ -17,6 +17,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	absensiController := &controllers.AbsensiController{DB: db, RedisClient: redisClient}
 	exportController := &controllers.ExportController{DB: db}
 	importController := &controllers.ImportController{DB: db}
+	dashboardController := &controllers.DashboardController{DB: db}
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Welcome to the Nasari Absensi API!"})
@@ -37,12 +38,11 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	protected.Get("/profile", authController.GetProfile)
 	protected.Put("/profile", authController.UpdateProfile)
 	protected.Post("/logout", authController.Logout)
+	protected.Get("/absensi/:id/photo", absensiController.GetAbsensiPhoto)
 
 	adminRoutes := protected.Group("/admin")
 	adminRoutes.Use(middleware.AuthMiddleware(string(models.RoleAdmin), string(models.RoleSuperadmin)))
-	adminRoutes.Get("/dashboard", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"message": "Welcome to the admin dashboard!"})
-	})
+	adminRoutes.Get("/dashboard", dashboardController.GetAdminDashboard)
 
 	// Pegawai routes
 	adminRoutes.Get("/pegawai", pegawaiController.GetAllPegawai)
@@ -51,6 +51,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	adminRoutes.Put("/pegawai/:id", pegawaiController.UpdatePegawai)
 	adminRoutes.Delete("/pegawai/:id", pegawaiController.DeletePegawai)
 	adminRoutes.Post("/pegawai/import", importController.ImportEmployes)
+	adminRoutes.Post("/pegawai/sync", pegawaiController.SyncPegawai)
 
 	// Absensi routes
 	adminRoutes.Get("/absensi", absensiController.GetAllAbsensi)
@@ -80,6 +81,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 	superAdminRoutes.Post("/pegawai", pegawaiController.CreatePegawai)
 	superAdminRoutes.Put("/pegawai/:id", pegawaiController.UpdatePegawai)
 	superAdminRoutes.Delete("/pegawai/:id", pegawaiController.DeletePegawai)
+	superAdminRoutes.Post("/pegawai/sync", pegawaiController.SyncPegawai)
 
 	// Lokasi routes
 	superAdminRoutes.Get("/lokasi", lokasiController.GetAllLokasi)
@@ -118,6 +120,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, redisClient *redis.Client) {
 		return c.JSON(fiber.Map{"message": "Welcome to the pegawai dashboard!"})
 	})
 	pegawaiRoutes.Get("/profile", authController.GetProfile)
+	pegawaiRoutes.Put("/fcm-token", authController.UpdateFcmToken)
 
 	//absensi routes
 	pegawaiRoutes.Get("/absensi", absensiController.GetTodayAbsensi)
