@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Search, Download, CalendarDays, Filter, Plus, Trash2, Edit, AlertCircle, RefreshCw, MoreHorizontal, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { AuthenticatedImage } from "@/components/AuthenticatedImage";
 import {
   Card,
   CardContent,
@@ -400,6 +401,7 @@ export default function AbsensiPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nama</TableHead>
+                  <TableHead>Lokasi</TableHead>
                   <TableHead className="hidden sm:table-cell">Tanggal</TableHead>
                   <TableHead>Masuk</TableHead>
                   <TableHead className="hidden md:table-cell">Pulang</TableHead>
@@ -414,6 +416,7 @@ export default function AbsensiPage() {
                     {Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={`sk-${i}`}>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                         <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-12" /></TableCell>
@@ -427,7 +430,7 @@ export default function AbsensiPage() {
 
                 {!isLoading && filteredData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
                       <div className="flex flex-col items-center gap-2">
                         <CalendarDays className="size-8 opacity-40" />
                         <p className="text-sm">Belum ada data absensi yang ditemukan.</p>
@@ -441,6 +444,7 @@ export default function AbsensiPage() {
                     {filteredData.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.user?.name || "Unknown User"}</TableCell>
+                        <TableCell>{item.nama_lokasi || "—"}</TableCell>
                         <TableCell className="hidden text-muted-foreground sm:table-cell">
                           {formatDateDisplay(item.absensi_masuk)}
                         </TableCell>
@@ -715,13 +719,27 @@ export default function AbsensiPage() {
               )}
 
               {/* Display Lampiran (foto_masuk) */}
-              {detailTarget.foto_masuk && (
+              {detailTarget.has_foto_masuk && (
                 <div>
-                  <p className="text-sm font-semibold text-muted-foreground mb-2">Lampiran Bukti (Foto/Dokumen)</p>
+                  <p className="text-sm font-semibold text-muted-foreground mb-2">Foto Absen Masuk</p>
                   <div className="overflow-hidden rounded-md border flex items-center justify-center bg-black/5 p-2">
-                    <img 
-                      src={detailTarget.foto_masuk} 
-                      alt="Lampiran" 
+                    <AuthenticatedImage 
+                      src={`/protected/absensi/${detailTarget.id}/photo?type=masuk`} 
+                      alt="Foto Masuk" 
+                      className="max-h-80 object-contain rounded"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Display Lampiran (foto_pulang) */}
+              {detailTarget.has_foto_pulang && (
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Foto Absen Pulang</p>
+                  <div className="overflow-hidden rounded-md border flex items-center justify-center bg-black/5 p-2">
+                    <AuthenticatedImage 
+                      src={`/protected/absensi/${detailTarget.id}/photo?type=pulang`} 
+                      alt="Foto Pulang" 
                       className="max-h-80 object-contain rounded"
                     />
                   </div>

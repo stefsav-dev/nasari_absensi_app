@@ -13,6 +13,7 @@ import {
   RefreshCw,
   CalendarDays,
   Ruler,
+  Edit,
 } from "lucide-react";
 import {
   Card,
@@ -174,15 +175,25 @@ export default function DetailLokasiPage() {
           </div>
         </div>
 
-        {/* Delete Button */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" className="shrink-0">
-              <Trash2 className="mr-2 size-4" />
-              <span className="hidden sm:inline">Hapus Lokasi</span>
-              <span className="sm:hidden">Hapus</span>
-            </Button>
-          </AlertDialogTrigger>
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="shrink-0">
+            <Link href={`/admin/lokasi/edit/${id}`}>
+              <Edit className="mr-2 size-4" />
+              <span className="hidden sm:inline">Edit Lokasi</span>
+              <span className="sm:hidden">Edit</span>
+            </Link>
+          </Button>
+
+          {/* Delete Button */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="shrink-0">
+                <Trash2 className="mr-2 size-4" />
+                <span className="hidden sm:inline">Hapus Lokasi</span>
+                <span className="sm:hidden">Hapus</span>
+              </Button>
+            </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Hapus Lokasi?</AlertDialogTitle>
@@ -216,6 +227,7 @@ export default function DetailLokasiPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        </div>
       </div>
 
       {/* Main Content */}

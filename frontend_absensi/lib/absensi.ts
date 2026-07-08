@@ -17,6 +17,7 @@ export interface Absensi {
   absensi_pulang: string;
   created_at: string;
   updated_at: string;
+  nama_lokasi?: string;
   keterangan?: string;
   user: UserInfo;
 }

@@ -12,10 +12,10 @@ import {
 
 const LOKASI_QUERY_KEY = ["lokasi"];
 
-export function useLokasi() {
+export function useLokasi(page: number = 1, limit: number = 10, search: string = "") {
   return useQuery({
-    queryKey: LOKASI_QUERY_KEY,
-    queryFn: getAllLokasi,
+    queryKey: [...LOKASI_QUERY_KEY, page, limit, search],
+    queryFn: () => getAllLokasi(page, limit, search),
   });
 }
 

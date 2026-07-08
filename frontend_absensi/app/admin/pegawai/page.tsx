@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, UserPlus, MoreHorizontal, Mail, Shield, FileUp, CheckCircle2, UploadCloud } from "lucide-react";
+import { Search, UserPlus, MoreHorizontal, Mail, Shield, FileUp, CheckCircle2, UploadCloud, RefreshCw } from "lucide-react";
 import api from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -256,7 +256,19 @@ export default function PegawaiPage() {
     }
   };
 
-
+  const handleSync = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.post("/protected/admin/pegawai/sync");
+      alert(res.data.data.message + `\nBerhasil Sinkronisasi: ${res.data.data.imported_count} pegawai\nDilewati (Duplikat): ${res.data.data.skipped_count} pegawai`);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to sync", err);
+      alert("Gagal melakukan sinkronisasi data.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6 pt-4">
@@ -272,10 +284,16 @@ export default function PegawaiPage() {
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           {(userRole === "admin" || userRole === "superadmin") && (
-            <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
-              <FileUp className="mr-2 size-4" />
-              Import Excel
-            </Button>
+            <>
+              <Button variant="outline" onClick={handleSync} disabled={actionLoading}>
+                <RefreshCw className={`mr-2 size-4 ${actionLoading ? "animate-spin" : ""}`} />
+                Sync Data
+              </Button>
+              <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
+                <FileUp className="mr-2 size-4" />
+                Import Excel
+              </Button>
+            </>
           )}
           <Button>
             <UserPlus className="mr-2 size-4" />
@@ -285,7 +303,7 @@ export default function PegawaiPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-8">
         <Card>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="rounded-lg bg-primary/10 p-3">
@@ -296,32 +314,6 @@ export default function PegawaiPage() {
                 {totalEmployees}
               </p>
               <p className="text-xs text-muted-foreground">Total Pegawai</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="rounded-lg bg-emerald-500/10 p-3">
-              <CheckCircle2 className="size-5 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {totalAktif}
-              </p>
-              <p className="text-xs text-muted-foreground">Pegawai Aktif</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="rounded-lg bg-destructive/10 p-3">
-              <Shield className="size-5 text-destructive" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {totalNonAktif}
-              </p>
-              <p className="text-xs text-muted-foreground">Nonaktif</p>
             </div>
           </CardContent>
         </Card>
@@ -353,10 +345,11 @@ export default function PegawaiPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Pegawai</TableHead>
+                <TableHead className="hidden md:table-cell">Lokasi Bekerja</TableHead>
                 <TableHead className="hidden md:table-cell">
                   Departemen
                 </TableHead>
-                <TableHead className="hidden sm:table-cell">Role</TableHead>
+                {/* <TableHead className="hidden sm:table-cell">Role</TableHead> */}
                 {/* <TableHead>Status</TableHead> */}
                 <TableHead className="w-12" />
               </TableRow>
@@ -393,12 +386,10 @@ export default function PegawaiPage() {
                       </div>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {emp.departemen || "-"}
+                      {emp.kantor || "-"}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <Badge variant={getRoleBadgeVariant(emp.role)}>
-                        {emp.role}
-                      </Badge>
+                    <TableCell className="hidden text-muted-foreground md:table-cell">
+                      {emp.departemen || "-"}
                     </TableCell>
                     <TableCell>
                       {/* <Badge variant={getStatusBadgeVariant(emp.status)}>

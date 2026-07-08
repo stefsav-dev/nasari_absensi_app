@@ -21,14 +21,23 @@ export interface CreateLokasiRequest {
 
 export interface LokasiListResponse {
   total: number;
+  page: number;
+  limit: number;
   lokasi: Lokasi[];
 }
 
 // ─── API Functions ───────────────────────────────────────
 
-export async function getAllLokasi(): Promise<LokasiListResponse> {
+export async function getAllLokasi(page: number = 1, limit: number = 10, search: string = ""): Promise<LokasiListResponse> {
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  if (search) {
+    queryParams.append("search", search);
+  }
   const response = await api.get<{ success: boolean; data: LokasiListResponse }>(
-    "/protected/admin/lokasi"
+    `/protected/admin/lokasi?${queryParams.toString()}`
   );
   return response.data.data;
 }

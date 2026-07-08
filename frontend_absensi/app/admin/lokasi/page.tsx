@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MapPin,
   Plus,
@@ -9,9 +9,13 @@ import {
   Navigation,
   Trash2,
   Eye,
+  Edit,
   Loader2,
   AlertCircle,
   RefreshCw,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Card,
@@ -21,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -51,7 +56,20 @@ import {
 import { useLokasi, useDeleteLokasi } from "@/hooks/use-lokasi";
 
 export default function LokasiPage() {
-  const { data, isLoading, isError, refetch } = useLokasi();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset to page 1 on new search
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const { data, isLoading, isError, refetch } = useLokasi(page, limit, debouncedSearch);
   const { mutate: deleteLokasi, isPending: isDeleting } = useDeleteLokasi();
 
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -135,7 +153,7 @@ export default function LokasiPage() {
       {/* Location Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Daftar Lokasi Kantor Pusat & Cabang Absensi</CardTitle>
               <CardDescription>
@@ -144,15 +162,26 @@ export default function LokasiPage() {
                   : `${total} lokasi ditemukan`}
               </CardDescription>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => refetch()}
-              disabled={isLoading}
-              className="text-muted-foreground"
-            >
-              <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-48">
+                <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari lokasi..."
+                  className="pl-8 h-9 text-sm"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => refetch()}
+                disabled={isLoading}
+                className="h-9 w-9 shrink-0"
+              >
+                <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -268,6 +297,12 @@ export default function LokasiPage() {
                                   Lihat Detail
                                 </Link>
                               </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/lokasi/edit/${loc.id}`}>
+                                  <Edit className="mr-2 size-4" />
+                                  Edit Lokasi
+                                </Link>
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
@@ -287,6 +322,34 @@ export default function LokasiPage() {
                 )}
               </TableBody>
             </Table>
+          )}
+
+          {/* Pagination Controls */}
+          {!isLoading && !isError && total > 0 && (
+            <div className="flex items-center justify-between pt-4 border-t mt-4">
+              <div className="text-sm text-muted-foreground">
+                Menampilkan {((page - 1) * limit) + 1} - {Math.min(page * limit, total)} dari {total} lokasi
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <div className="text-sm font-medium">Halaman {page}</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page * limit >= total}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

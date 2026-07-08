@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
 import {
   Users,
   UserCheck,
@@ -26,88 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const statsCards = [
-  {
-    title: "Total Pegawai",
-    value: "124",
-    change: "+4 bulan ini",
-    icon: Users,
-    trend: "up" as const,
-  },
-  {
-    title: "Hadir Hari Ini",
-    value: "98",
-    change: "79% kehadiran",
-    icon: UserCheck,
-    trend: "up" as const,
-  },
-  {
-    title: "Terlambat",
-    value: "12",
-    change: "9.7% dari total",
-    icon: Clock,
-    trend: "neutral" as const,
-  },
-  {
-    title: "Tidak Hadir",
-    value: "14",
-    change: "11.3% dari total",
-    icon: UserX,
-    trend: "down" as const,
-  },
-];
-
-const recentAttendance = [
-  {
-    id: 1,
-    name: "Budi Santoso",
-    time: "07:45",
-    status: "Hadir",
-    department: "IT",
-  },
-  {
-    id: 2,
-    name: "Siti Rahayu",
-    time: "07:52",
-    status: "Hadir",
-    department: "HR",
-  },
-  {
-    id: 3,
-    name: "Ahmad Fauzi",
-    time: "08:15",
-    status: "Terlambat",
-    department: "Finance",
-  },
-  {
-    id: 4,
-    name: "Dewi Lestari",
-    time: "07:30",
-    status: "Hadir",
-    department: "Marketing",
-  },
-  {
-    id: 5,
-    name: "Rudi Hermawan",
-    time: "—",
-    status: "Alpha",
-    department: "IT",
-  },
-  {
-    id: 6,
-    name: "Maya Putri",
-    time: "08:05",
-    status: "Terlambat",
-    department: "Finance",
-  },
-];
-
-const quickStats = [
-  { label: "Rata-rata Jam Masuk", value: "07:48" },
-  { label: "Tepat Waktu Minggu Ini", value: "89%" },
-  { label: "Total Izin Bulan Ini", value: "7" },
-  { label: "Total Cuti Bulan Ini", value: "3" },
-];
+// Removed static mock data
 
 function getStatusBadgeVariant(status: string) {
   switch (status) {
@@ -123,6 +44,65 @@ function getStatusBadgeVariant(status: string) {
 }
 
 export default function DashboardPage() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const response = await api.get("/protected/admin/dashboard");
+        if (response.data && response.data.data) {
+          setData(response.data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, []);
+
+  const statsCards = data ? [
+    {
+      title: "Total Pegawai",
+      value: data.total_pegawai || "0",
+      change: "Total di sistem",
+      icon: Users,
+      trend: "neutral" as const,
+    },
+    {
+      title: "Hadir Hari Ini",
+      value: data.hadir_hari_ini?.total || "0",
+      change: `${data.hadir_hari_ini?.percentage || "0%"} kehadiran`,
+      icon: UserCheck,
+      trend: "up" as const,
+    },
+    {
+      title: "Terlambat",
+      value: data.terlambat?.total || "0",
+      change: `${data.terlambat?.percentage || "0%"} dari total`,
+      icon: Clock,
+      trend: "down" as const, // Down is bad, so maybe neutral or down visually?
+    },
+    {
+      title: "Tidak Hadir",
+      value: data.tidak_hadir?.total || "0",
+      change: `${data.tidak_hadir?.percentage || "0%"} dari total`,
+      icon: UserX,
+      trend: "down" as const,
+    },
+  ] : [];
+
+  const quickStats = data ? [
+    { label: "Rata-rata Jam Masuk", value: data.quick_stats?.rata_rata_jam_masuk || "00:00" },
+    { label: "Tepat Waktu Hari Ini", value: data.quick_stats?.tepat_waktu_minggu_ini || "0%" },
+    { label: "Total Izin Bulan Ini", value: data.quick_stats?.total_izin_bulan_ini || "0" },
+    { label: "Total Cuti Bulan Ini", value: data.quick_stats?.total_cuti_bulan_ini || "0" },
+  ] : [];
+
+  const attendanceList = data?.recent_attendance || [];
+
   return (
     <div className="space-y-6 pt-4">
       {/* Page Title */}
@@ -133,32 +113,36 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statsCards.map((stat) => (
-          <Card key={stat.title} className="relative overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className="rounded-md bg-primary/10 p-2">
-                <stat.icon className="size-4 text-primary" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stat.value}</div>
-              <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                {stat.trend === "up" && (
-                  <TrendingUp className="size-3 text-emerald-500" />
-                )}
-                {stat.change}
-              </div>
-            </CardContent>
-            {/* Decorative gradient */}
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/40 via-primary/20 to-transparent" />
-          </Card>
-        ))}
-      </div>
+      {loading ? (
+        <div className="py-12 text-center text-muted-foreground">Memuat data dashboard...</div>
+      ) : (
+        <>
+          {/* Stats Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {statsCards.map((stat) => (
+              <Card key={stat.title} className="relative overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className="rounded-md bg-primary/10 p-2">
+                    <stat.icon className="size-4 text-primary" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{stat.value}</div>
+                  <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                    {stat.trend === "up" && (
+                      <TrendingUp className="size-3 text-emerald-500" />
+                    )}
+                    {stat.change}
+                  </div>
+                </CardContent>
+                {/* Decorative gradient */}
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/40 via-primary/20 to-transparent" />
+              </Card>
+            ))}
+          </div>
 
       {/* Content Grid */}
       <div className="grid gap-4 lg:grid-cols-7">
@@ -172,11 +156,11 @@ export default function DashboardPage() {
                   Absensi Terbaru
                 </CardTitle>
                 <CardDescription>
-                  Aktivitas absensi pegawai hari ini
+                  Aktivitas absensi pegawai terbaru
                 </CardDescription>
               </div>
               <Badge variant="outline" className="hidden sm:inline-flex">
-                Hari Ini
+                Terbaru
               </Badge>
             </div>
           </CardHeader>
@@ -188,27 +172,41 @@ export default function DashboardPage() {
                   <TableHead className="hidden sm:table-cell">
                     Departemen
                   </TableHead>
+                  <TableHead>Lokasi</TableHead>
                   <TableHead>Jam Masuk</TableHead>
+                  <TableHead>Jam Pulang</TableHead>
                   <TableHead className="text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentAttendance.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
-                      {item.department}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {item.time}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={getStatusBadgeVariant(item.status)}>
-                        {item.status}
-                      </Badge>
+                {attendanceList.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      Belum ada absensi.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  attendanceList.map((item: any) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="hidden text-muted-foreground sm:table-cell">
+                        {item.department}
+                      </TableCell>
+                      <TableCell>{item.locationName}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {item.time}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {item.timeOut}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={getStatusBadgeVariant(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -219,9 +217,9 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ArrowUpRight className="size-5" />
-              Ringkasan Minggu Ini
+              Ringkasan Hari Ini
             </CardTitle>
-            <CardDescription>Statistik kehadiran minggu berjalan</CardDescription>
+            <CardDescription>Statistik kehadiran hari ini</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {quickStats.map((stat) => (
@@ -245,12 +243,12 @@ export default function DashboardPage() {
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: "79%" }}
+                        style={{ width: data?.hadir_hari_ini?.percentage || "0%" }}
                       />
                     </div>
                   </div>
-                  <span className="w-10 text-right text-xs font-medium">
-                    79%
+                  <span className="w-12 text-right text-xs font-medium">
+                    {data?.hadir_hari_ini?.percentage || "0%"}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -261,28 +259,28 @@ export default function DashboardPage() {
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-amber-500 transition-all"
-                        style={{ width: "10%" }}
+                        style={{ width: data?.terlambat?.percentage || "0%" }}
                       />
                     </div>
                   </div>
-                  <span className="w-10 text-right text-xs font-medium">
-                    10%
+                  <span className="w-12 text-right text-xs font-medium">
+                    {data?.terlambat?.percentage || "0%"}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="w-20 text-xs text-muted-foreground">
-                    Alpha
+                    Absen/Alpha
                   </span>
                   <div className="flex-1">
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-destructive transition-all"
-                        style={{ width: "11%" }}
+                        style={{ width: data?.tidak_hadir?.percentage || "0%" }}
                       />
                     </div>
                   </div>
-                  <span className="w-10 text-right text-xs font-medium">
-                    11%
+                  <span className="w-12 text-right text-xs font-medium">
+                    {data?.tidak_hadir?.percentage || "0%"}
                   </span>
                 </div>
               </div>
@@ -290,6 +288,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
     </div>
   );
 }
