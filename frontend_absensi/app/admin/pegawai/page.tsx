@@ -309,14 +309,14 @@ export default function PegawaiPage() {
       <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-4 pt-6">
-            <div className="rounded-lg bg-primary/10 p-3">
-              <Shield className="size-5 text-primary" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Shield className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold leading-none">
                 {totalEmployees}
               </p>
-              <p className="text-xs text-muted-foreground">Total Pegawai</p>
+              <p className="text-sm text-muted-foreground mt-1">Total Pegawai</p>
             </div>
           </CardContent>
         </Card>
