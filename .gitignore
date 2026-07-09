@@ -6,6 +6,8 @@ frontend_absensi/node_modules/
 frontend_absensi/.next/
 frontend_absensi/.env
 
+nasari_absensi_pwa/*
+
 # General
 .env
 node_modules/

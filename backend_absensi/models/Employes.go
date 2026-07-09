@@ -10,6 +10,7 @@ type Employes struct {
 	gorm.Model
 	UserID         uint      `json:"user_id" gorm:"not null"`
 	LokasiID       uint      `json:"lokasi_id" gorm:"not null"`
+	KaryawanID     *int      `json:"karyawan_id"` // External API ID
 	User           User      `json:"user" gorm:"foreignKey:UserID"`
 	Location       Location  `json:"location" gorm:"foreignKey:LokasiID"`
 	Nik            string    `json:"nik"`

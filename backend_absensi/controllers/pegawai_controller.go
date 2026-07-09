@@ -49,6 +49,7 @@ type UserWithFullEmploye struct {
 	Divisi       string
 	Status       string
 	Nik          string
+	KaryawanID   *int
 	JenisKelamin string
 	Agama        string
 	TempatLahir  string
@@ -66,6 +67,7 @@ type PegawaiDetailResponse struct {
 	Departemen   string      `json:"departemen"`
 	Status       string      `json:"status"`
 	Nik          string      `json:"nik"`
+	KaryawanID   *int        `json:"karyawan_id"`
 	JenisKelamin string      `json:"jenis_kelamin"`
 	Agama        string      `json:"agama"`
 	TempatLahir  string      `json:"tempat_lahir"`
@@ -89,6 +91,7 @@ type UpdatePegawaiRequest struct {
 	Password    string `json:"password"` // optional, kosong berarti tidak diubah
 	Departemen  string `json:"departemen"`
 	Status      string `json:"status"`
+	KaryawanID  *int   `json:"karyawan_id"`
 }
 
 // toResponse converts a User model to PegawaiResponse
@@ -222,7 +225,7 @@ func (p *PegawaiController) GetPegawaiByID(c *fiber.Ctx) error {
 
 	var userWithEmploye UserWithFullEmploye
 	if err := p.DB.Model(&models.User{}).
-		Select("users.*, employes.divisi as divisi, employes.status as status, employes.nik as nik, employes.jenis_kelamin as jenis_kelamin, employes.agama as agama, employes.tempat_lahir as tempat_lahir, employes.tanggal_lahir as tanggal_lahir, employes.alamat as alamat, employes.no_telp as no_telp, employes.jabatan as jabatan").
+		Select("users.*, employes.divisi as divisi, employes.status as status, employes.nik as nik, employes.karyawan_id as karyawan_id, employes.jenis_kelamin as jenis_kelamin, employes.agama as agama, employes.tempat_lahir as tempat_lahir, employes.tanggal_lahir as tanggal_lahir, employes.alamat as alamat, employes.no_telp as no_telp, employes.jabatan as jabatan").
 		Joins("LEFT JOIN employes ON employes.user_id = users.id").
 		Where("users.id = ? AND users.role = ?", id, models.RolePegawai).
 		First(&userWithEmploye).Error; err != nil {
@@ -240,6 +243,7 @@ func (p *PegawaiController) GetPegawaiByID(c *fiber.Ctx) error {
 		Departemen:   userWithEmploye.Divisi,
 		Status:       userWithEmploye.Status,
 		Nik:          userWithEmploye.Nik,
+		KaryawanID:   userWithEmploye.KaryawanID,
 		JenisKelamin: userWithEmploye.JenisKelamin,
 		Agama:        userWithEmploye.Agama,
 		TempatLahir:  userWithEmploye.TempatLahir,
@@ -340,7 +344,7 @@ func (p *PegawaiController) UpdatePegawai(c *fiber.Ctx) error {
 	}
 
 	// Update fields di employes
-	if req.Departemen != "" || req.Status != "" {
+	if req.Departemen != "" || req.Status != "" || req.KaryawanID != nil {
 		var employe models.Employes
 		if err := tx.Where("user_id = ?", user.ID).First(&employe).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
@@ -358,8 +362,9 @@ func (p *PegawaiController) UpdatePegawai(c *fiber.Ctx) error {
 				employe = models.Employes{
 					UserID:   user.ID,
 					LokasiID: defaultLoc.ID,
-					Divisi:   req.Departemen,
-					Status:   req.Status,
+					Divisi:     req.Departemen,
+					Status:     req.Status,
+					KaryawanID: req.KaryawanID,
 				}
 				if err := tx.Create(&employe).Error; err != nil {
 					tx.Rollback()
@@ -377,6 +382,9 @@ func (p *PegawaiController) UpdatePegawai(c *fiber.Ctx) error {
 			}
 			if req.Status != "" {
 				updates["status"] = req.Status
+			}
+			if req.KaryawanID != nil {
+				updates["karyawan_id"] = req.KaryawanID
 			}
 			if err := tx.Model(&employe).Updates(updates).Error; err != nil {
 				tx.Rollback()

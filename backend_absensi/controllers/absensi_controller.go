@@ -426,8 +426,8 @@ func (ac *AbsensiController) DeleteAbsensi(c *fiber.Ctx) error {
 type ExtAbsensiPayload struct {
 	KaryawanID int     `json:"karyawan_id"`
 	Tanggal    string  `json:"tanggal"`
-	JamMasuk   string  `json:"jam_masuk"`
-	JamKeluar  string  `json:"jam_keluar"`
+	JamMasuk   *string `json:"jam_masuk"`
+	JamKeluar  *string `json:"jam_keluar"`
 	Keterangan *string `json:"keterangan"`
 }
 
@@ -445,15 +445,23 @@ func PushAbsensiToExternalAPI(db *gorm.DB, userID uint, absensi *models.Absensi)
 		return
 	}
 
-	// Format dates
-	var tanggal, jamMasuk, jamKeluar string
+	if employe.KaryawanID == nil {
+		fmt.Println("PushAbsensi: Failed to sync, KaryawanID (external API ID) is not set for employe:", employe.ID)
+		return
+	}
+
+	var tanggal string
+	var jamMasuk, jamKeluar *string
+
 	if absensi.AbsensiMasuk != nil {
 		tanggal = absensi.AbsensiMasuk.Format("2006-01-02")
-		jamMasuk = absensi.AbsensiMasuk.Format("15:04:05")
+		jm := absensi.AbsensiMasuk.Format("15:04:05")
+		jamMasuk = &jm
 	}
 
 	if absensi.AbsensiPulang != nil {
-		jamKeluar = absensi.AbsensiPulang.Format("15:04:05")
+		jk := absensi.AbsensiPulang.Format("15:04:05")
+		jamKeluar = &jk
 		if tanggal == "" {
 			tanggal = absensi.AbsensiPulang.Format("2006-01-02")
 		}
@@ -466,7 +474,7 @@ func PushAbsensiToExternalAPI(db *gorm.DB, userID uint, absensi *models.Absensi)
 	}
 
 	payload := ExtAbsensiPayload{
-		KaryawanID: int(employe.ID),
+		KaryawanID: *employe.KaryawanID,
 		Tanggal:    tanggal,
 		JamMasuk:   jamMasuk,
 		JamKeluar:  jamKeluar,
