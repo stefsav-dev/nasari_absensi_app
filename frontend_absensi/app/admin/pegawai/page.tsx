@@ -348,6 +348,7 @@ export default function PegawaiPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Pegawai</TableHead>
+                <TableHead className="hidden sm:table-cell">NIK</TableHead>
                 <TableHead className="hidden md:table-cell">Lokasi Bekerja</TableHead>
                 <TableHead className="hidden md:table-cell">
                   Departemen
@@ -360,13 +361,13 @@ export default function PegawaiPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Memuat data...
                   </TableCell>
                 </TableRow>
               ) : data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Tidak ada data pegawai.
                   </TableCell>
                 </TableRow>
@@ -387,6 +388,9 @@ export default function PegawaiPage() {
                           </div>
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell className="hidden font-mono text-sm sm:table-cell">
+                      {emp.nik || "-"}
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
                       {emp.kantor || "-"}
