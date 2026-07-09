@@ -90,6 +90,7 @@ export default function PegawaiPage() {
     email: "",
     departemen: "",
     status: "",
+    karyawan_id: null as number | null,
   });
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -215,6 +216,7 @@ export default function PegawaiPage() {
           email: p.email || "",
           departemen: p.departemen || "",
           status: p.status || "",
+          karyawan_id: p.karyawan_id || null,
         });
         setIsEditModalOpen(true);
       }
@@ -548,6 +550,10 @@ export default function PegawaiPage() {
                 <span className="col-span-2">{selectedPegawai.departemen || "-"}</span>
               </div>
               <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-semibold text-muted-foreground">Karyawan ID:</span>
+                <span className="col-span-2">{selectedPegawai.karyawan_id || "-"}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
                 <span className="font-semibold text-muted-foreground">Jabatan:</span>
                 <span className="col-span-2">{selectedPegawai.jabatan || "-"}</span>
               </div>
@@ -619,6 +625,16 @@ export default function PegawaiPage() {
                 id="departemen"
                 value={editForm.departemen}
                 onChange={(e) => setEditForm({ ...editForm, departemen: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="karyawan_id">Karyawan ID (API Eksternal)</Label>
+              <Input
+                id="karyawan_id"
+                type="number"
+                value={editForm.karyawan_id || ""}
+                onChange={(e) => setEditForm({ ...editForm, karyawan_id: e.target.value ? parseInt(e.target.value) : null })}
+                placeholder="Misal: 1"
               />
             </div>
             <div className="grid gap-2">
