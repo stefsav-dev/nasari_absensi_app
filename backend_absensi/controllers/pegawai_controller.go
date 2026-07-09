@@ -34,6 +34,7 @@ type PegawaiResponse struct {
 	Role        models.Role `json:"-"`
 	Departemen  string      `json:"departemen"`
 	Kantor      string      `json:"kantor"`
+	Nik         string      `json:"nik"`
 	Status      string      `json:"status"`
 }
 
@@ -42,6 +43,7 @@ type UserWithEmploye struct {
 	Divisi string
 	Status string
 	Kantor string
+	Nik    string
 }
 
 type UserWithFullEmploye struct {
@@ -172,7 +174,7 @@ func (p *PegawaiController) GetAllPegawai(c *fiber.Ctx) error {
 
 	var usersWithEmployes []UserWithEmploye
 	query := p.DB.Model(&models.User{}).
-		Select("users.*, employes.divisi as divisi, employes.status as status, employes.kantor as kantor").
+		Select("users.*, employes.divisi as divisi, employes.status as status, employes.kantor as kantor, employes.nik as nik").
 		Joins("LEFT JOIN employes ON employes.user_id = users.id").
 		Where("users.role = ?", models.RolePegawai)
 
@@ -191,6 +193,7 @@ func (p *PegawaiController) GetAllPegawai(c *fiber.Ctx) error {
 			NamaLengkap: u.NamaLengkap,
 			Email:       u.Email,
 			Role:        u.Role,
+			Nik:         u.Nik,
 			Departemen:  u.Divisi,
 			Kantor:      u.Kantor,
 			Status:      u.Status,
