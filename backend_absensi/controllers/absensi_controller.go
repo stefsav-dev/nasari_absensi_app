@@ -251,6 +251,16 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		absensiMasuk = &now
 	}
 
+	if req.Status == "Hadir" && absensiMasuk != nil {
+		loc, err := time.LoadLocation("Asia/Jakarta")
+		if err == nil {
+			wibTime := absensiMasuk.In(loc)
+			if wibTime.Hour() > 8 || (wibTime.Hour() == 8 && wibTime.Minute() > 5) {
+				req.Status = "Terlambat"
+			}
+		}
+	}
+
 	if req.AbsensiPulang != "" {
 		t, err := time.Parse(time.RFC3339, req.AbsensiPulang)
 		if err != nil {
@@ -513,9 +523,15 @@ func PushAbsensiToExternalAPI(db *gorm.DB, userID uint, absensi *models.Absensi)
 		return
 	}
 
-	// 2. Post Absensi
+	// 2. Send Absensi (POST for masuk, PUT for pulang)
 	payloadBytes, _ := json.Marshal(payload)
-	req, err := http.NewRequest("POST", "https://116.254.117.243/api-absensi/api/", bytes.NewBuffer(payloadBytes))
+
+	method := "POST"
+	if jamKeluar != nil {
+		method = "PUT"
+	}
+
+	req, err := http.NewRequest(method, "https://116.254.117.243/api-absensi/api/", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		fmt.Println("PushAbsensi: Failed to create request:", err)
 		return
@@ -540,7 +556,7 @@ func PushAbsensiToExternalAPI(db *gorm.DB, userID uint, absensi *models.Absensi)
 
 func isValidStatus(status string) bool {
 	switch models.StatusAbsensi(status) {
-	case models.StatusHadir, models.StatusSakit, models.StatusIjin,
+	case models.StatusHadir, models.StatusTerlambat, models.StatusSakit, models.StatusIjin,
 		models.StatusAlpha, models.StatusDinasLuar, models.StatusCutiTahunan,
 		models.StatusCutiBersalin, models.StatusCutiAlasanPenting, models.StatusCutiDiluarTanggungan:
 		return true

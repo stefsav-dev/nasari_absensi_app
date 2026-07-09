@@ -10,6 +10,7 @@ type StatusAbsensi string
 
 const (
 	StatusHadir                          StatusAbsensi = "Hadir"
+	StatusTerlambat                      StatusAbsensi = "Terlambat"
 	StatusSakit                          StatusAbsensi = "Sakit"
 	StatusIjin                           StatusAbsensi = "Ijin"
 	StatusAlpha                          StatusAbsensi = "Alpha"

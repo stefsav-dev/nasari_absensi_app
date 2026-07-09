@@ -553,7 +553,11 @@ func (p *PegawaiController) SyncPegawai(c *fiber.Ctx) error {
 		// Check if employe exists
 		var existingEmploye models.Employes
 		if err := p.DB.Where("nik = ?", nik).First(&existingEmploye).Error; err == nil {
-			// Exists, skip
+			// Jika KaryawanID belum ada atau beda, update KaryawanID-nya
+			if existingEmploye.KaryawanID == nil || *existingEmploye.KaryawanID != empData.Id {
+				p.DB.Model(&existingEmploye).Update("karyawan_id", empData.Id)
+			}
+			// Exists, skip insert
 			skippedCount++
 			continue
 		}
@@ -610,13 +614,14 @@ func (p *PegawaiController) SyncPegawai(c *fiber.Ctx) error {
 
 		// 3. Employes
 		employe := models.Employes{
-			UserID:   user.ID,
-			LokasiID: lokasiID,
-			Nik:      nik,
-			Divisi:   empData.Bagian,
-			Jabatan:  empData.Jabatan,
-			Kantor:   kantor,
-			Status:   "Aktif",
+			UserID:     user.ID,
+			LokasiID:   lokasiID,
+			Nik:        nik,
+			Divisi:     empData.Bagian,
+			Jabatan:    empData.Jabatan,
+			Kantor:     kantor,
+			Status:     "Aktif",
+			KaryawanID: &empData.Id,
 		}
 
 		if err := tx.Create(&employe).Error; err != nil {
