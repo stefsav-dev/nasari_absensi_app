@@ -143,7 +143,7 @@ export default function AbsensiPage() {
         status: formData.status,
         absensi_masuk: formData.absensi_masuk ? new Date(formData.absensi_masuk).toISOString() : new Date().toISOString(),
         absensi_pulang: formData.absensi_pulang ? new Date(formData.absensi_pulang).toISOString() : undefined,
-        keterangan: formData.status === "Ijin" ? formData.keterangan : undefined,
+        keterangan: ["Ijin", "Dinas Luar", "Cuti Karena Alasan Penting"].includes(formData.status) ? formData.keterangan : undefined,
       },
       {
         onSuccess: () => {
@@ -165,7 +165,7 @@ export default function AbsensiPage() {
           status: formData.status,
           absensi_masuk: formData.absensi_masuk ? new Date(formData.absensi_masuk).toISOString() : undefined,
           absensi_pulang: formData.absensi_pulang ? new Date(formData.absensi_pulang).toISOString() : undefined,
-          keterangan: formData.status === "Ijin" ? formData.keterangan : undefined,
+          keterangan: ["Ijin", "Dinas Luar", "Cuti Karena Alasan Penting"].includes(formData.status) ? formData.keterangan : undefined,
         },
       },
       {
@@ -188,16 +188,14 @@ export default function AbsensiPage() {
       return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     };
 
-    let capitalizedStatus = item.status 
-      ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() 
-      : "Hadir";
-    if (capitalizedStatus === "Izin" || capitalizedStatus === "Ijin") {
-      capitalizedStatus = "Ijin";
+    let formattedStatus = item.status || "Hadir";
+    if (formattedStatus.toLowerCase() === "izin") {
+      formattedStatus = "Ijin";
     }
 
     setFormData({
       user_id: item.user_id.toString(),
-      status: capitalizedStatus,
+      status: formattedStatus,
       absensi_masuk: formatDateTimeLocal(item.absensi_masuk),
       absensi_pulang: formatDateTimeLocal(item.absensi_pulang),
       keterangan: item.keterangan || "",
@@ -246,8 +244,8 @@ export default function AbsensiPage() {
   const totalTerlambat = absensiList.filter((a) => a.status?.toLowerCase() === "terlambat").length;
   const totalAlpha = absensiList.filter((a) => a.status?.toLowerCase() === "alpha").length;
   const totalIzinCuti = absensiList.filter((a) => {
-    const s = a.status?.toLowerCase();
-    return s === "izin" || s === "ijin" || s === "cuti";
+    const s = a.status?.toLowerCase() || "";
+    return s === "izin" || s === "ijin" || s.includes("cuti") || s === "dinas luar";
   }).length;
   const totalSakit = absensiList.filter((a) => a.status?.toLowerCase() === "sakit").length;
 
@@ -532,10 +530,14 @@ export default function AbsensiPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Hadir">Hadir</SelectItem>
-                  <SelectItem value="Terlambat">Terlambat</SelectItem>
+                  <SelectItem value="Sakit">Sakit</SelectItem>
                   <SelectItem value="Ijin">Ijin</SelectItem>
-                  <SelectItem value="Cuti">Cuti</SelectItem>
                   <SelectItem value="Alpha">Alpha</SelectItem>
+                  <SelectItem value="Dinas Luar">Dinas Luar</SelectItem>
+                  <SelectItem value="Cuti Tahunan">Cuti Tahunan</SelectItem>
+                  <SelectItem value="Cuti Bersalin (Melahirkan)">Cuti Bersalin (Melahirkan)</SelectItem>
+                  <SelectItem value="Cuti Karena Alasan Penting">Cuti Karena Alasan Penting</SelectItem>
+                  <SelectItem value="Cuti Diluar Tanggungan Perusahaan">Cuti Diluar Tanggungan Perusahaan</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -558,7 +560,7 @@ export default function AbsensiPage() {
                 onChange={(e) => setFormData({ ...formData, absensi_pulang: e.target.value })}
               />
             </div>
-            {formData.status === "Ijin" && (
+            {["Ijin", "Dinas Luar", "Cuti Karena Alasan Penting"].includes(formData.status) && (
               <div className="space-y-2">
                 <Label htmlFor="keterangan">Keterangan</Label>
                 <textarea
@@ -566,7 +568,7 @@ export default function AbsensiPage() {
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   value={formData.keterangan}
                   onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                  placeholder="Masukkan keterangan ijin..."
+                  placeholder={`Masukkan keterangan ${formData.status.toLowerCase()}...`}
                   required
                 />
               </div>
@@ -599,10 +601,14 @@ export default function AbsensiPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Hadir">Hadir</SelectItem>
-                  <SelectItem value="Terlambat">Terlambat</SelectItem>
+                  <SelectItem value="Sakit">Sakit</SelectItem>
                   <SelectItem value="Ijin">Ijin</SelectItem>
-                  <SelectItem value="Cuti">Cuti</SelectItem>
                   <SelectItem value="Alpha">Alpha</SelectItem>
+                  <SelectItem value="Dinas Luar">Dinas Luar</SelectItem>
+                  <SelectItem value="Cuti Tahunan">Cuti Tahunan</SelectItem>
+                  <SelectItem value="Cuti Bersalin (Melahirkan)">Cuti Bersalin (Melahirkan)</SelectItem>
+                  <SelectItem value="Cuti Karena Alasan Penting">Cuti Karena Alasan Penting</SelectItem>
+                  <SelectItem value="Cuti Diluar Tanggungan Perusahaan">Cuti Diluar Tanggungan Perusahaan</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -625,7 +631,7 @@ export default function AbsensiPage() {
                 onChange={(e) => setFormData({ ...formData, absensi_pulang: e.target.value })}
               />
             </div>
-            {formData.status === "Ijin" && (
+            {["Ijin", "Dinas Luar", "Cuti Karena Alasan Penting"].includes(formData.status) && (
               <div className="space-y-2">
                 <Label htmlFor="edit-keterangan">Keterangan</Label>
                 <textarea
@@ -633,7 +639,7 @@ export default function AbsensiPage() {
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   value={formData.keterangan}
                   onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                  placeholder="Masukkan keterangan ijin..."
+                  placeholder={`Masukkan keterangan ${formData.status.toLowerCase()}...`}
                   required
                 />
               </div>
