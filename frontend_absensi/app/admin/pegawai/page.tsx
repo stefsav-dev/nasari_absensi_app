@@ -305,6 +305,7 @@ export default function PegawaiPage() {
       </div>
 
       {/* Summary Cards */}
+      {/* fixing card */}
       <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-4 pt-6">
