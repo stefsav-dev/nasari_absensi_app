@@ -383,9 +383,9 @@ export default function PegawaiPage() {
                         </Avatar>
                         <div>
                           <div className="font-medium">{emp.nama_lengkap}</div>
-                          <div className="text-xs text-muted-foreground">
+                          {/* <div className="text-xs text-muted-foreground">
                             {emp.email}
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     </TableCell>
