@@ -213,12 +213,19 @@ func (a *AuthController) GetProfile(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusNotFound, "User not found")
 	}
 
+	var employeData models.Employes
+	var bagian string
+	if err := a.DB.Where("user_id = ?", user.UserID).First(&employeData).Error; err == nil {
+		bagian = employeData.Divisi
+	}
+
 	return utils.SuccessResponse(c, fiber.Map{
 		"id":           userData.ID,
 		"email":        userData.Email,
 		"nama_lengkap": userData.NamaLengkap,
 		"role":         userData.Role,
 		"foto":         userData.Foto,
+		"bagian":       bagian,
 	})
 }
 
@@ -260,6 +267,12 @@ func (a *AuthController) UpdateProfile(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update profile")
 	}
 
+	var employeData models.Employes
+	var bagian string
+	if err := a.DB.Where("user_id = ?", user.UserID).First(&employeData).Error; err == nil {
+		bagian = employeData.Divisi
+	}
+
 	return utils.SuccessResponse(c, fiber.Map{
 		"message": "Profile updated successfully",
 		"user": fiber.Map{
@@ -268,6 +281,7 @@ func (a *AuthController) UpdateProfile(c *fiber.Ctx) error {
 			"nama_lengkap": userData.NamaLengkap,
 			"role":         userData.Role,
 			"foto":         userData.Foto,
+			"bagian":       bagian,
 		},
 	})
 }
