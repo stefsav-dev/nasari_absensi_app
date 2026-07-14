@@ -8,12 +8,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	pigo "github.com/esimov/pigo/core"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -113,6 +118,69 @@ type UpdateAbsensiRequest struct {
 	Longitude       float64 `json:"longitude"`
 	Akurasi         float64 `json:"akurasi"`
 	Keterangan      string  `json:"keterangan"`
+}
+
+// ─────────────────────────────────────────────
+// Face Detection Helper
+// ─────────────────────────────────────────────
+func DetectFace(base64Data string) bool {
+	if base64Data == "" {
+		return false
+	}
+	idx := strings.Index(base64Data, "base64,")
+	if idx != -1 {
+		base64Data = base64Data[idx+7:]
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		fmt.Println("FaceDetection: decode error", err)
+		return false
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(decoded))
+	if err != nil {
+		fmt.Println("FaceDetection: image decode error", err)
+		return false
+	}
+
+	pixels := pigo.RgbToGrayscale(img)
+	cols := img.Bounds().Max.X
+	rows := img.Bounds().Max.Y
+
+	cascadeFile, err := os.ReadFile("./data/facefinder")
+	if err != nil {
+		fmt.Println("FaceDetection: error reading cascade file", err)
+		return true // Fallback: biarkan lewat jika AI file error agar tidak memblokir user
+	}
+
+	p := pigo.NewPigo()
+	classifier, err := p.Unpack(cascadeFile)
+	if err != nil {
+		fmt.Println("FaceDetection: unpack error", err)
+		return true
+	}
+
+	cParams := pigo.CascadeParams{
+		MinSize:     20,
+		MaxSize:     1000,
+		ShiftFactor: 0.1,
+		ScaleFactor: 1.1,
+		ImageParams: pigo.ImageParams{
+			Pixels: pixels,
+			Rows:   rows,
+			Cols:   cols,
+			Dim:    cols,
+		},
+	}
+
+	dets := classifier.RunCascade(cParams, 0)
+	dets = classifier.ClusterDetections(dets, 0.2)
+
+	if len(dets) == 0 {
+		return false
+	}
+	return true
 }
 
 // ─────────────────────────────────────────────
@@ -278,6 +346,18 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Database error verifying user")
 	}
 
+	// Face Detection Check
+	fotoToAnalyze := req.FotoMasuk
+	if req.FotoPulang != "" {
+		fotoToAnalyze = req.FotoPulang
+	}
+	if fotoToAnalyze != "" {
+		hasFace := DetectFace(fotoToAnalyze)
+		if !hasFace {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Wajah tidak terdeteksi pada foto. Pastikan wajah Anda terlihat jelas di dalam bingkai kamera.")
+		}
+	}
+
 	absensiID := uuid.New().String()
 
 	absensi := models.Absensi{
@@ -363,6 +443,18 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		}
 		absensi.AbsensiPulang = &pulang
 	}
+	// Face Detection Check for update (clock-out photo)
+	fotoToCheck := req.FotoMasuk
+	if req.FotoPulang != "" {
+		fotoToCheck = req.FotoPulang
+	}
+	if fotoToCheck != "" {
+		hasFace := DetectFace(fotoToCheck)
+		if !hasFace {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Wajah tidak terdeteksi pada foto. Pastikan wajah Anda terlihat jelas di dalam bingkai kamera.")
+		}
+	}
+
 	if req.FotoMasuk != "" {
 		absensi.FotoMasuk = req.FotoMasuk
 	}
