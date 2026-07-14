@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View, ActivityIndicator, ScrollView, Platform, StatusBar, Text } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, ActivityIndicator, ScrollView, Platform, StatusBar, Text, Modal, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [earlyLeaveModalVisible, setEarlyLeaveModalVisible] = useState(false);
+  const [earlyLeaveReason, setEarlyLeaveReason] = useState('');
   const lastFetchedDate = React.useRef(new Date().getDate());
 
   // Live Clock effect
@@ -68,13 +70,31 @@ export default function HomeScreen() {
     }
   };
 
-  const handleAbsensiPress = async (type: 'masuk' | 'pulang', id?: number) => {
+  const handleAbsensiPress = async (type: 'masuk' | 'pulang', id?: number, keterangan?: string) => {
     setLocationLoading(true);
     router.push({
       pathname: '/maps-location',
-      params: { type, id: id || '' }
+      params: { type, id: id || '', keterangan: keterangan || '' }
     });
     setLocationLoading(false);
+  };
+
+  const handleClockOutPress = () => {
+    if (currentTime.getHours() < 17) {
+      setEarlyLeaveModalVisible(true);
+    } else {
+      handleAbsensiPress('pulang', absensiData.id);
+    }
+  };
+
+  const submitEarlyLeave = () => {
+    if (!earlyLeaveReason.trim()) {
+      Alert.alert('Error', 'Keterangan alasan pulang cepat wajib diisi.');
+      return;
+    }
+    setEarlyLeaveModalVisible(false);
+    handleAbsensiPress('pulang', absensiData.id, earlyLeaveReason);
+    setEarlyLeaveReason('');
   };
 
   // Format Time (HH.mm)
@@ -150,17 +170,12 @@ export default function HomeScreen() {
           ) : !hasCheckedOut ? (
             <View>
               <TouchableOpacity 
-                style={currentTime.getHours() < 17 ? [styles.actionButton, styles.actionButtonDisabled] : styles.actionButton}
-                onPress={() => handleAbsensiPress('pulang', absensiData.id)}
-                disabled={locationLoading || loading || currentTime.getHours() < 17}
+                style={styles.actionButton}
+                onPress={handleClockOutPress}
+                disabled={locationLoading || loading}
               >
-                {locationLoading ? <ActivityIndicator color="#475569" /> : <Text style={currentTime.getHours() < 17 ? styles.actionButtonTextDisabled : styles.actionButtonText}>Clock out</Text>}
+                {locationLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionButtonText}>Clock out</Text>}
               </TouchableOpacity>
-              {currentTime.getHours() < 17 && (
-                <Text style={styles.timeWarningText}>
-                  Absensi pulang baru dapat dilakukan mulai pukul 17.00
-                </Text>
-              )}
             </View>
           ) : (
             <View style={[styles.actionButton, styles.actionButtonDisabled]}>
@@ -181,8 +196,12 @@ export default function HomeScreen() {
         
         {historyData.slice(0, 5).map((item, index) => (
           <View key={index} style={styles.historyItemCard}>
-            <Text style={styles.historyItemDate}>{formatDate(new Date(item.absensi_masuk))}</Text>
-            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.historyItemDate}>{formatDate(new Date(item.absensi_masuk))}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: item.status === 'Terlambat' ? '#ef4444' : (item.absensi_pulang && new Date(item.absensi_pulang).getFullYear() > 2000 ? '#10b981' : '#f59e0b') }]}>
+                <Text style={styles.statusBadgeText}>{item.status === 'Terlambat' ? 'Terlambat' : (item.absensi_pulang && new Date(item.absensi_pulang).getFullYear() > 2000 ? 'Selesai' : 'Belum Pulang')}</Text>
+              </View>
+            </View>
             <View style={styles.historyRow}>
               <Text style={styles.historyLabel}>Clock In</Text>
               <Text style={styles.historyValue}>{formatTime(new Date(item.absensi_masuk))}</Text>
@@ -203,6 +222,38 @@ export default function HomeScreen() {
           <Text style={styles.emptyText}>Belum ada data absensi.</Text>
         )}
       </ScrollView>
+
+      {/* Modal Pulang Cepat */}
+      <Modal visible={earlyLeaveModalVisible} transparent animationType="fade" onRequestClose={() => setEarlyLeaveModalVisible(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setEarlyLeaveModalVisible(false)}>
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Absen Pulang Lebih Awal</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Keterangan / Alasan:</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Kenapa Anda pulang sebelum jam 17:00?"
+                placeholderTextColor="#94a3b8"
+                multiline
+                numberOfLines={3}
+                value={earlyLeaveReason}
+                onChangeText={setEarlyLeaveReason}
+                textAlignVertical="top"
+              />
+              <View style={styles.modalFooter}>
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setEarlyLeaveModalVisible(false)}>
+                  <Text style={styles.cancelButtonText}>Batal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.submitModalButton} onPress={submitEarlyLeave}>
+                  <Text style={styles.submitModalButtonText}>Lanjutkan Absen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -368,7 +419,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     color: '#004b87',
-    marginBottom: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   historyRow: {
     flexDirection: 'row',
@@ -398,4 +458,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontWeight: '500',
   },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', elevation: 10 },
+  modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', backgroundColor: '#f8fafc' },
+  modalTitle: { color: '#0f172a', fontSize: 18, fontWeight: 'bold' },
+  modalBody: { padding: 20 },
+  modalLabel: { fontSize: 14, fontWeight: 'bold', color: '#475569', marginBottom: 8 },
+  textInput: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 12, color: '#0f172a', fontSize: 14, minHeight: 80, marginBottom: 20 },
+  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+  cancelButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  cancelButtonText: { color: '#475569', fontWeight: 'bold' },
+  submitModalButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#0ea5e9' },
+  submitModalButtonText: { color: '#fff', fontWeight: 'bold' },
 });

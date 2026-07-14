@@ -23,7 +23,7 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
+  const [nik, setNik] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -31,8 +31,8 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError('Username/Email dan password harus diisi');
+    if (!nik.trim() || !password.trim()) {
+      setError('NIK dan password harus diisi');
       return;
     }
 
@@ -40,9 +40,9 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      await signIn(email.trim(), password);
+      await signIn(nik.trim(), password);
     } catch (err: any) {
-      const msg = 'Username/Email atau password Anda salah';
+      const msg = 'NIK atau password Anda salah';
       setError(msg);
       // Fallback native alert
       Alert.alert('Login Gagal', msg);
@@ -86,17 +86,17 @@ export default function LoginScreen() {
 
               {/* Input Fields */}
               <View style={styles.inputSection}>
-                <Text style={styles.label}>Email address</Text>
+                <Text style={styles.label}>NIK</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="person-outline" size={20} color="#64748b" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter your email"
+                    placeholder="Masukkan NIK"
                     placeholderTextColor="#94a3b8"
-                    keyboardType="email-address"
+                    keyboardType="numeric"
                     autoCapitalize="none"
-                    value={email}
-                    onChangeText={setEmail}
+                    value={nik}
+                    onChangeText={setNik}
                   />
                 </View>
 

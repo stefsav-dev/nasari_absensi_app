@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,6 +15,8 @@ export default function FaceVerificationScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [faceError, setFaceError] = useState<string | null>(null);
+  const errorAnim = useRef(new Animated.Value(0)).current;
 
   // Params extracted from router
   const type = params.type as 'masuk' | 'pulang';
@@ -22,6 +24,33 @@ export default function FaceVerificationScreen() {
   const latitude = Number(params.latitude);
   const longitude = Number(params.longitude);
   const accuracy = Number(params.accuracy);
+  const keterangan = params.keterangan as string | undefined;
+
+  // Animate error banner in/out
+  useEffect(() => {
+    if (faceError) {
+      Animated.spring(errorAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 10,
+      }).start();
+
+      // Auto-dismiss after 5 seconds
+      const timer = setTimeout(() => {
+        dismissError();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [faceError]);
+
+  const dismissError = () => {
+    Animated.timing(errorAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setFaceError(null));
+  };
 
   if (!permission) {
     // Camera permissions are still loading.
@@ -50,6 +79,7 @@ export default function FaceVerificationScreen() {
     if (!cameraRef.current || isProcessing) return;
 
     setIsProcessing(true);
+    setFaceError(null);
     try {
       // Capture the picture with base64 enabled
       const photo = await cameraRef.current.takePictureAsync({
@@ -61,7 +91,7 @@ export default function FaceVerificationScreen() {
 
       // Prepare payload based on whether it is Masuk or Pulang
       const payload: any = {
-        status: 'hadir',
+        status: 'Hadir',
         latitude: latitude,
         longitude: longitude,
         akurasi: accuracy,
@@ -74,6 +104,9 @@ export default function FaceVerificationScreen() {
         payload.latitude_pulang = latitude;
         payload.longitude_pulang = longitude;
         payload.akurasi_pulang = accuracy;
+        if (keterangan) {
+          payload.keterangan = keterangan;
+        }
       } else {
         payload.absensi_masuk = new Date().toISOString();
         payload.foto_masuk = base64Image;
@@ -102,12 +135,17 @@ export default function FaceVerificationScreen() {
           ]);
         } catch (apiError: any) {
           // If API fails
-          console.error('API Error:', apiError);
-          // await savePendingAbsensi(payload); // Offline sync disabled
-          Alert.alert(
-            'Gagal', 
-            `Koneksi server bermasalah. Silakan coba lagi nanti.`
-          );
+          console.log('API Error:', apiError);
+          const errorMessage = apiError.response?.data?.error || 'Koneksi server bermasalah. Silakan coba lagi nanti.';
+          
+          // Check if it's a face detection error — show inline warning instead of alert
+          const isFaceError = errorMessage.toLowerCase().includes('wajah tidak terdeteksi');
+          if (isFaceError) {
+            setFaceError(errorMessage);
+          } else {
+            // await savePendingAbsensi(payload); // Offline sync disabled
+            Alert.alert('Gagal', errorMessage);
+          }
         }
       } else {
         // Device is completely offline
@@ -119,7 +157,7 @@ export default function FaceVerificationScreen() {
       }
       
     } catch (error: any) {
-      console.error('Failed to capture or save absensi', error);
+      console.log('Failed to capture or save absensi', error);
       Alert.alert('Gagal', 'Terjadi kesalahan pada kamera atau penyimpanan lokal.');
     } finally {
       setIsProcessing(false);
@@ -143,31 +181,58 @@ export default function FaceVerificationScreen() {
           facing="front"
         />
         <View style={[StyleSheet.absoluteFillObject, styles.overlay]}>
-          <View style={styles.frame}>
+          {/* Face detection error banner */}
+          {faceError && (
+            <Animated.View style={[
+              styles.errorBanner,
+              {
+                opacity: errorAnim,
+                transform: [{ translateY: errorAnim.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] }) }],
+              }
+            ]}>
+              <View style={styles.errorIconContainer}>
+                <Ionicons name="warning" size={24} color="#fbbf24" />
+              </View>
+              <View style={styles.errorTextContainer}>
+                <Text style={styles.errorTitle}>Wajah Tidak Terdeteksi</Text>
+                <Text style={styles.errorMessage}>Pastikan wajah Anda terlihat jelas di dalam bingkai, lalu foto ulang.</Text>
+              </View>
+              <TouchableOpacity onPress={dismissError} style={styles.errorDismiss}>
+                <Ionicons name="close" size={20} color="#fff" />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
+          <View style={[styles.frame, faceError ? styles.frameError : null]}>
             {/* Corner markers for facial frame */}
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
+            <View style={[styles.corner, styles.topLeft, faceError ? styles.cornerError : null]} />
+            <View style={[styles.corner, styles.topRight, faceError ? styles.cornerError : null]} />
+            <View style={[styles.corner, styles.bottomLeft, faceError ? styles.cornerError : null]} />
+            <View style={[styles.corner, styles.bottomRight, faceError ? styles.cornerError : null]} />
           </View>
-          <Text style={styles.instructions}>
-            Posisikan wajah Anda di dalam kotak
+          <Text style={[styles.instructions, faceError ? styles.instructionsError : null]}>
+            {faceError ? 'Arahkan wajah ke kamera, lalu foto ulang' : 'Posisikan wajah Anda di dalam kotak'}
           </Text>
         </View>
       </View>
 
       <View style={styles.controls}>
         <TouchableOpacity 
-          style={styles.captureButton} 
+          style={[styles.captureButton, faceError ? styles.captureButtonRetry : null]} 
           onPress={handleCapture}
           disabled={isProcessing}
         >
           {isProcessing ? (
             <ActivityIndicator size="large" color="#0ea5e9" />
+          ) : faceError ? (
+            <Ionicons name="refresh" size={36} color="#f43f5e" />
           ) : (
             <View style={styles.captureInner} />
           )}
         </TouchableOpacity>
+        {faceError && (
+          <Text style={styles.retryHint}>Ketuk untuk foto ulang</Text>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -238,6 +303,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Error banner styles
+  errorBanner: {
+    position: 'absolute',
+    top: 10,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(127, 29, 29, 0.92)',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    zIndex: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  errorIconContainer: {
+    marginRight: 12,
+  },
+  errorTextContainer: {
+    flex: 1,
+  },
+  errorTitle: {
+    color: '#fbbf24',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  errorMessage: {
+    color: '#fecaca',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  errorDismiss: {
+    padding: 4,
+    marginLeft: 8,
+  },
   frame: {
     width: 250,
     height: 300,
@@ -245,11 +346,17 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 20,
   },
+  frameError: {
+    // Visual indicator when face not detected
+  },
   corner: {
     position: 'absolute',
     width: 40,
     height: 40,
     borderColor: '#38bdf8',
+  },
+  cornerError: {
+    borderColor: '#f43f5e',
   },
   topLeft: {
     top: 0,
@@ -284,8 +391,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
   },
+  instructionsError: {
+    backgroundColor: 'rgba(244, 63, 94, 0.8)',
+    fontWeight: 'bold',
+  },
   controls: {
-    height: 120,
+    height: 140,
     backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
@@ -298,6 +409,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  captureButtonRetry: {
+    borderWidth: 3,
+    borderColor: '#f43f5e',
+  },
   captureInner: {
     width: 70,
     height: 70,
@@ -305,5 +420,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     borderWidth: 2,
     borderColor: '#cbd5e1',
+  },
+  retryHint: {
+    color: '#f43f5e',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
   },
 });

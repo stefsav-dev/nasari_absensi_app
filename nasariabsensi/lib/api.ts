@@ -70,6 +70,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    if (error.response) {
+      console.error(`API Error [${error.response.status}] on ${originalRequest.method?.toUpperCase()} ${originalRequest.url}`, error.response.data);
+    } else {
+      console.error(`API Error on ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url}:`, error.message);
+    }
 
     // Check if error is 401 Unauthorized and request has not been retried yet
     // Do not intercept 401 errors for login or refresh-token requests

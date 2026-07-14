@@ -14,7 +14,7 @@ interface AuthContextType {
   session: string | null;
   user: User | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (nik: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfilePhoto: (base64Photo: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -82,11 +82,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Handle signIn
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (nik: string, password: string) => {
     setIsLoading(true);
     try {
       // Backend /login returns TokenResponse directly: { access_token, refresh_token, expires_in }
-      const response = await api.post('/login', { email, password });
+      const response = await api.post('/login', { nik, password });
       
       const { access_token, refresh_token } = response.data;
       

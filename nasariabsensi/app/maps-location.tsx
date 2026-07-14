@@ -51,6 +51,7 @@ export default function MapsLocationScreen() {
   const params = useLocalSearchParams();
   const type = params.type as 'masuk' | 'pulang';
   const id = params.id as string;
+  const keterangan = params.keterangan as string | undefined;
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +89,7 @@ export default function MapsLocationScreen() {
       params: {
         type,
         id,
+        keterangan: keterangan || '',
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         accuracy: location.coords.accuracy || 0,
