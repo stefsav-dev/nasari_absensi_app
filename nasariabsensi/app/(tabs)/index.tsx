@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View, ActivityIndicator, ScrollView, Platform, StatusBar, Text, Modal, TextInput, Alert } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, ActivityIndicator, ScrollView, Platform, StatusBar, Text, Modal, TextInput, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 
 import { absensiService } from '@/lib/api';
 import { configureNotifications, requestNotificationPermissions, scheduleDailyNotifications } from '@/lib/notifications';
@@ -20,6 +21,11 @@ export default function HomeScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [earlyLeaveModalVisible, setEarlyLeaveModalVisible] = useState(false);
   const [earlyLeaveReason, setEarlyLeaveReason] = useState('');
+  
+  const [lateModalVisible, setLateModalVisible] = useState(false);
+  const [lateReason, setLateReason] = useState('');
+  const [latePhoto, setLatePhoto] = useState<string | null>(null);
+
   const lastFetchedDate = React.useRef(new Date().getDate());
 
   // Live Clock effect
@@ -70,13 +76,45 @@ export default function HomeScreen() {
     }
   };
 
-  const handleAbsensiPress = async (type: 'masuk' | 'pulang', id?: number, keterangan?: string) => {
+  const handleAbsensiPress = async (type: 'masuk' | 'pulang', id?: number, keterangan?: string, foto_keterangan?: string) => {
     setLocationLoading(true);
     router.push({
       pathname: '/maps-location',
-      params: { type, id: id || '', keterangan: keterangan || '' }
+      params: { type, id: id || '', keterangan: keterangan || '', foto_keterangan: foto_keterangan || '' }
     });
     setLocationLoading(false);
+  };
+
+  const pickLatePhoto = async () => {
+    let result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setLatePhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
+  const handleClockInPress = () => {
+    if (currentTime.getHours() > 8 || (currentTime.getHours() === 8 && currentTime.getMinutes() > 5)) {
+      setLateModalVisible(true);
+    } else {
+      handleAbsensiPress('masuk');
+    }
+  };
+
+  const submitLateCheckIn = () => {
+    if (!lateReason.trim()) {
+      Alert.alert('Error', 'Keterangan alasan terlambat wajib diisi.');
+      return;
+    }
+    setLateModalVisible(false);
+    handleAbsensiPress('masuk', undefined, lateReason, latePhoto || undefined);
+    setLateReason('');
+    setLatePhoto(null);
   };
 
   const handleClockOutPress = () => {
@@ -162,7 +200,7 @@ export default function HomeScreen() {
           {!hasCheckedIn ? (
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => handleAbsensiPress('masuk')}
+              onPress={handleClockInPress}
               disabled={locationLoading || loading}
             >
               {locationLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionButtonText}>Clock in</Text>}
@@ -254,6 +292,49 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Modal Terlambat */}
+      <Modal visible={lateModalVisible} transparent animationType="fade" onRequestClose={() => setLateModalVisible(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setLateModalVisible(false)}>
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Kenapa Terlambat?</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Alasan Keterlambatan (Wajib):</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Tulis alasan keterlambatan Anda..."
+                placeholderTextColor="#94a3b8"
+                multiline
+                numberOfLines={3}
+                value={lateReason}
+                onChangeText={setLateReason}
+                textAlignVertical="top"
+              />
+              
+              <Text style={styles.modalLabel}>Lampirkan Foto Bukti (Opsional):</Text>
+              <TouchableOpacity style={styles.photoUploadBtn} onPress={pickLatePhoto}>
+                <Ionicons name="camera" size={24} color="#004b87" />
+                <Text style={styles.photoUploadText}>{latePhoto ? 'Foto Dilampirkan (Ketuk ubah)' : 'Ambil Foto Bukti'}</Text>
+              </TouchableOpacity>
+              {latePhoto && (
+                <Image source={{ uri: latePhoto }} style={styles.latePhotoPreview} />
+              )}
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setLateModalVisible(false)}>
+                  <Text style={styles.cancelButtonText}>Batal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.submitModalButton} onPress={submitLateCheckIn}>
+                  <Text style={styles.submitModalButtonText}>Lanjutkan Absen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     </View>
   );
 }
@@ -470,4 +551,7 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: '#475569', fontWeight: 'bold' },
   submitModalButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#0ea5e9' },
   submitModalButtonText: { color: '#fff', fontWeight: 'bold' },
+  photoUploadBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', padding: 12, borderRadius: 12, marginBottom: 12, justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#e2e8f0', borderStyle: 'dashed' },
+  photoUploadText: { color: '#004b87', fontWeight: '600' },
+  latePhotoPreview: { width: '100%', height: 120, borderRadius: 12, marginBottom: 20, resizeMode: 'cover' },
 });

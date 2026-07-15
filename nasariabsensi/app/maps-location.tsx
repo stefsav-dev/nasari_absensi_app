@@ -82,6 +82,7 @@ export default function MapsLocationScreen() {
   const type = params.type as 'masuk' | 'pulang';
   const id = params.id as string;
   const keterangan = params.keterangan as string | undefined;
+  const fotoKeterangan = params.foto_keterangan as string | undefined;
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,6 +148,7 @@ export default function MapsLocationScreen() {
         type,
         id,
         keterangan: keterangan || '',
+        foto_keterangan: fotoKeterangan || '',
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         accuracy: location.coords.accuracy || 0,

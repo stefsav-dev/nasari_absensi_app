@@ -25,6 +25,7 @@ export default function FaceVerificationScreen() {
   const longitude = Number(params.longitude);
   const accuracy = Number(params.accuracy);
   const keterangan = params.keterangan as string | undefined;
+  const fotoKeterangan = params.foto_keterangan as string | undefined;
 
   // Animate error banner in/out
   useEffect(() => {
@@ -113,6 +114,12 @@ export default function FaceVerificationScreen() {
         payload.latitude_masuk = latitude;
         payload.longitude_masuk = longitude;
         payload.akurasi_masuk = accuracy;
+        if (keterangan) {
+          payload.keterangan = keterangan;
+        }
+        if (fotoKeterangan) {
+          payload.foto_keterangan = fotoKeterangan;
+        }
       }
 
       // Check network status
