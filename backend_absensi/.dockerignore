@@ -1,0 +1,7 @@
+.env
+.git
+server.log
+tmp_backend
+Dockerfile
+dockerFile
+*.log
