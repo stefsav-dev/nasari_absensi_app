@@ -215,8 +215,18 @@ func (a *AuthController) GetProfile(c *fiber.Ctx) error {
 
 	var employeData models.Employes
 	var bagian string
-	if err := a.DB.Where("user_id = ?", user.UserID).First(&employeData).Error; err == nil {
+	var lokasiData map[string]interface{}
+	if err := a.DB.Preload("Location").Where("user_id = ?", user.UserID).First(&employeData).Error; err == nil {
 		bagian = employeData.Divisi
+		if employeData.Location.ID != 0 {
+			lokasiData = map[string]interface{}{
+				"id":          employeData.Location.ID,
+				"nama_lokasi": employeData.Location.NamaLokasi,
+				"latitude":    employeData.Location.Latitude,
+				"longitude":   employeData.Location.Longitude,
+				"radius":      employeData.Location.Radius,
+			}
+		}
 	}
 
 	return utils.SuccessResponse(c, fiber.Map{
@@ -226,6 +236,7 @@ func (a *AuthController) GetProfile(c *fiber.Ctx) error {
 		"role":         userData.Role,
 		"foto":         userData.Foto,
 		"bagian":       bagian,
+		"lokasi":       lokasiData,
 	})
 }
 
@@ -269,8 +280,18 @@ func (a *AuthController) UpdateProfile(c *fiber.Ctx) error {
 
 	var employeData models.Employes
 	var bagian string
-	if err := a.DB.Where("user_id = ?", user.UserID).First(&employeData).Error; err == nil {
+	var lokasiData map[string]interface{}
+	if err := a.DB.Preload("Location").Where("user_id = ?", user.UserID).First(&employeData).Error; err == nil {
 		bagian = employeData.Divisi
+		if employeData.Location.ID != 0 {
+			lokasiData = map[string]interface{}{
+				"id":          employeData.Location.ID,
+				"nama_lokasi": employeData.Location.NamaLokasi,
+				"latitude":    employeData.Location.Latitude,
+				"longitude":   employeData.Location.Longitude,
+				"radius":      employeData.Location.Radius,
+			}
+		}
 	}
 
 	return utils.SuccessResponse(c, fiber.Map{
@@ -282,6 +303,7 @@ func (a *AuthController) UpdateProfile(c *fiber.Ctx) error {
 			"role":         userData.Role,
 			"foto":         userData.Foto,
 			"bagian":       bagian,
+			"lokasi":       lokasiData,
 		},
 	})
 }

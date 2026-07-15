@@ -12,6 +12,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -346,6 +347,24 @@ func (ac *AbsensiController) CreateAbsensi(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Database error verifying user")
 	}
 
+	// Location Radius Check
+	var employe models.Employes
+	if err := ac.DB.Preload("Location").Where("user_id = ?", req.UserID).First(&employe).Error; err == nil {
+		if employe.Location.ID != 0 && employe.Location.Radius > 0 {
+			officeLat := employe.Location.Latitude
+			officeLon := employe.Location.Longitude
+			officeRadius := employe.Location.Radius
+			userLat := firstNonZero(req.LatitudeMasuk, req.Latitude)
+			userLon := firstNonZero(req.LongitudeMasuk, req.Longitude)
+			
+			distance := calculateDistance(userLat, userLon, officeLat, officeLon)
+			if distance > officeRadius {
+				return utils.ErrorResponse(c, fiber.StatusBadRequest, fmt.Sprintf("Lokasi Anda berada di luar radius kantor (%.0fm / %.0fm).", distance, officeRadius))
+			}
+			req.NamaLokasi = employe.Location.NamaLokasi
+		}
+	}
+
 	// Face Detection Check
 	fotoToAnalyze := req.FotoMasuk
 	if req.FotoPulang != "" {
@@ -443,6 +462,25 @@ func (ac *AbsensiController) UpdateAbsensi(c *fiber.Ctx) error {
 		}
 		absensi.AbsensiPulang = &pulang
 	}
+	// Location Radius Check
+	var employe models.Employes
+	if err := ac.DB.Preload("Location").Where("user_id = ?", absensi.UserID).First(&employe).Error; err == nil {
+		if employe.Location.ID != 0 && employe.Location.Radius > 0 {
+			officeLat := employe.Location.Latitude
+			officeLon := employe.Location.Longitude
+			officeRadius := employe.Location.Radius
+			userLat := firstNonZero(req.LatitudePulang, req.Latitude)
+			userLon := firstNonZero(req.LongitudePulang, req.Longitude)
+			
+			if userLat != 0 && userLon != 0 {
+				distance := calculateDistance(userLat, userLon, officeLat, officeLon)
+				if distance > officeRadius {
+					return utils.ErrorResponse(c, fiber.StatusBadRequest, fmt.Sprintf("Lokasi Anda berada di luar radius kantor (%.0fm / %.0fm).", distance, officeRadius))
+				}
+			}
+		}
+	}
+
 	// Face Detection Check for update (clock-out photo)
 	fotoToCheck := req.FotoMasuk
 	if req.FotoPulang != "" {
@@ -493,6 +531,17 @@ func firstNonZero(primary float64, fallback float64) float64 {
 		return primary
 	}
 	return fallback
+}
+
+func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371000 // Radius of earth in meters
+	dLat := (lat2 - lat1) * math.Pi / 180.0
+	dLon := (lon2 - lon1) * math.Pi / 180.0
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180.0)*math.Cos(lat2*math.Pi/180.0)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return R * c
 }
 
 // ─────────────────────────────────────────────
@@ -552,20 +601,27 @@ func PushAbsensiToExternalAPI(db *gorm.DB, userID uint, absensi *models.Absensi)
 		return
 	}
 
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		loc = time.Local
+	}
+
 	var tanggal string
 	var jamMasuk, jamKeluar *string
 
 	if absensi.AbsensiMasuk != nil {
-		tanggal = absensi.AbsensiMasuk.Format("2006-01-02")
-		jm := absensi.AbsensiMasuk.Format("15:04:05")
+		tMasuk := absensi.AbsensiMasuk.In(loc)
+		tanggal = tMasuk.Format("2006-01-02")
+		jm := tMasuk.Format("15:04:05")
 		jamMasuk = &jm
 	}
 
 	if absensi.AbsensiPulang != nil {
-		jk := absensi.AbsensiPulang.Format("15:04:05")
+		tPulang := absensi.AbsensiPulang.In(loc)
+		jk := tPulang.Format("15:04:05")
 		jamKeluar = &jk
 		if tanggal == "" {
-			tanggal = absensi.AbsensiPulang.Format("2006-01-02")
+			tanggal = tPulang.Format("2006-01-02")
 		}
 	}
 

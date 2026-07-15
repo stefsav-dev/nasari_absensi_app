@@ -5,8 +5,16 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/auth-context';
 
-const getLeafletHTML = (latitude: number, longitude: number, accuracy: number) => `
+const getLeafletHTML = (
+  latitude: number, 
+  longitude: number, 
+  accuracy: number,
+  officeLat?: number,
+  officeLon?: number,
+  officeRadius?: number
+) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -42,12 +50,34 @@ const getLeafletHTML = (latitude: number, longitude: number, accuracy: number) =
       fillOpacity: 0.3,
       weight: 2,
     }).addTo(map);
+
+    ${officeLat && officeLon && officeRadius ? `
+    // Office radius circle
+    L.circle([${officeLat}, ${officeLon}], {
+      radius: ${officeRadius},
+      color: '#f43f5e',
+      fillColor: '#f43f5e30',
+      fillOpacity: 0.3,
+      weight: 2,
+      dashArray: '5, 5'
+    }).addTo(map).bindPopup('<b>Radius Kantor</b><br>Batas absensi');
+    
+    // Fit bounds to show both
+    var group = new L.featureGroup([
+      L.circle([${latitude}, ${longitude}], {radius: ${accuracy}}),
+      L.circle([${officeLat}, ${officeLon}], {radius: ${officeRadius}})
+    ]);
+    map.fitBounds(group.getBounds().pad(0.2));
+    ` : ''}
   </script>
 </body>
 </html>
 `;
 
 export default function MapsLocationScreen() {
+  const { user } = useAuth();
+  const officeLokasi = user?.lokasi;
+
   const params = useLocalSearchParams();
   const type = params.type as 'masuk' | 'pulang';
   const id = params.id as string;
@@ -78,10 +108,37 @@ export default function MapsLocationScreen() {
     })();
   }, []);
 
+  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // metres
+    const p1 = lat1 * Math.PI/180;
+    const p2 = lat2 * Math.PI/180;
+    const dp = (lat2-lat1) * Math.PI/180;
+    const dl = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dp/2) * Math.sin(dp/2) +
+              Math.cos(p1) * Math.cos(p2) *
+              Math.sin(dl/2) * Math.sin(dl/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
   const handleContinue = () => {
     if (!location) {
       Alert.alert('Tunggu', 'Lokasi Anda belum ditemukan.');
       return;
+    }
+
+    if (officeLokasi && officeLokasi.latitude && officeLokasi.longitude && officeLokasi.radius > 0) {
+      const distance = getDistance(
+        location.coords.latitude, 
+        location.coords.longitude, 
+        officeLokasi.latitude, 
+        officeLokasi.longitude
+      );
+      
+      if (distance > officeLokasi.radius) {
+         Alert.alert('Gagal Absen', `Lokasi Anda berada di luar radius kantor (${Math.round(distance)}m / ${officeLokasi.radius}m).`);
+         return;
+      }
     }
 
     router.replace({
@@ -135,7 +192,10 @@ export default function MapsLocationScreen() {
           source={{ html: getLeafletHTML(
             location.coords.latitude,
             location.coords.longitude,
-            location.coords.accuracy || 10
+            location.coords.accuracy || 10,
+            officeLokasi?.latitude,
+            officeLokasi?.longitude,
+            officeLokasi?.radius
           )}}
           javaScriptEnabled={true}
           domStorageEnabled={true}

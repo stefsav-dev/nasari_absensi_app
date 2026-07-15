@@ -57,32 +57,13 @@ export default function TabLayout() {
           options={{
             title: 'Riwayat',
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="clock.fill" color={color} />,
-            // UBAH NILAI INI: Perbesar marginRight untuk menggeser Riwayat lebih jauh ke KIRI
-            tabBarItemStyle: { marginRight: 0 },
           }}
         />
-
-        {/* Dummy Tab sebagai Spacer Besar di Tengah */}
-        <Tabs.Screen
-          name="action"
-          options={{
-            title: '',
-            tabBarIcon: () => null,
-            // UBAH NILAI INI: Perbesar width untuk melebarkan jarak tengah
-            tabBarButton: () => <View style={{ width: 60 }} />
-          }}
-          listeners={{
-            tabPress: (e) => e.preventDefault()
-          }}
-        />
-
         <Tabs.Screen
           name="ijin"
           options={{
             title: 'Ijin',
             tabBarIcon: ({ color }) => <Ionicons name="document-text" size={24} color={color} />,
-            // UBAH NILAI INI: Perbesar marginLeft untuk menggeser Ijin lebih jauh ke KANAN
-            tabBarItemStyle: { marginLeft: 0 },
           }}
         />
         <Tabs.Screen
@@ -95,7 +76,7 @@ export default function TabLayout() {
       </Tabs>
 
       {/* Floating Camera Button */}
-      <View style={styles.fabContainer} pointerEvents="box-none">
+      {/* <View style={styles.fabContainer} pointerEvents="box-none">
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.8}
@@ -120,7 +101,7 @@ export default function TabLayout() {
         >
           <Ionicons name="camera" size={32} color="#fff" />
         </TouchableOpacity>
-      </View>
+      </View> */}
     </View>
   );
 }

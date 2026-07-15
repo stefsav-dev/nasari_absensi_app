@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { absensiService } from '@/lib/api';
 import { cancelLateNotification, cancelPulangNotification } from '@/lib/notifications';
@@ -166,6 +166,7 @@ export default function FaceVerificationScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} disabled={isProcessing}>
           <Ionicons name="arrow-back" size={28} color="#fff" />

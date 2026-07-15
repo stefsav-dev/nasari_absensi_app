@@ -162,6 +162,10 @@ func formatExcelTime(value time.Time) string {
 	if value.IsZero() {
 		return ""
 	}
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err == nil {
+		value = value.In(loc)
+	}
 	return value.Format("2006-01-02 15:04:05")
 }
 
@@ -169,7 +173,12 @@ func formatExcelTimePtr(value *time.Time) string {
 	if value == nil || value.IsZero() {
 		return ""
 	}
-	return value.Format("2006-01-02 15:04:05")
+	t := *value
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err == nil {
+		t = t.In(loc)
+	}
+	return t.Format("2006-01-02 15:04:05")
 }
 
 func contentTypesXML() string {

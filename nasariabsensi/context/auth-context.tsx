@@ -9,6 +9,13 @@ interface User {
   role: string;
   foto?: string;
   bagian?: string;
+  lokasi?: {
+    id: number;
+    nama_lokasi: string;
+    latitude: number;
+    longitude: number;
+    radius: number;
+  };
 }
 
 interface AuthContextType {
