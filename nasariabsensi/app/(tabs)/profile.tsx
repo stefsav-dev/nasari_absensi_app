@@ -130,7 +130,7 @@ export default function ProfileScreen() {
         <SectionHeader title="Data Kepegawaian" />
         <View style={styles.sectionContainer}>
           <MenuItem label="Status Pegawai" actionText="Lihat" />
-          <MenuItem label="Jabatan" actionText={user?.role ? user.role.toUpperCase() : 'Pegawai'} />
+          <MenuItem label="Bagian" actionText={user?.bagian ? user.bagian.toUpperCase() : '-'} />
         </View>
 
         {/* Pengaturan Keamanan */}

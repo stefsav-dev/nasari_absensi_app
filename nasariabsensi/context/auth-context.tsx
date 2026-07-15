@@ -8,6 +8,7 @@ interface User {
   nama_lengkap: string;
   role: string;
   foto?: string;
+  bagian?: string;
 }
 
 interface AuthContextType {
